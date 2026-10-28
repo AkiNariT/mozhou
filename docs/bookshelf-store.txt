@@ -1,0 +1,20 @@
+书架存储约定
+
+BookshelfStore(dataRoot) 将书架记录存储于 dataRoot/bookshelf.json，格式为 ShelfBook 的 JSON 数组。
+ShelfBook 提供可读写的 Folder、Title、Description、WordCount、ChapterCount、UpdatedAt、LastOpenedAt、Problem、IsAvailable。
+目录转为绝对路径，去除末尾分隔符；Windows 上按忽略大小写的目录路径去重。小说 Id 不参与去重，复制到新目录的小说可分别保留。
+
+Read() 返回最后打开时间降序、正文更新时间降序排列的缓存。不存在索引时返回空列表，不建立 bookshelf.json。
+Remember(folder, project) 记录已打开或保存小说的传入快照，更新 LastOpenedAt，不读写小说正文。统计仅包含 Kind == "chapter" 的条目，采用 ProjectContent.CountWords。
+Refresh() 通过 ProjectStore.Load() 只读刷新每本已登记小说的元数据，并保持 LastOpenedAt；不修改正文、.bak、聊天记录或正文备份。缺失、损坏、无权访问的小说保留缓存并标记 IsAvailable=false，Problem 保存异常信息；恢复可读后清除此标记。不存在索引时返回空列表。
+Forget(folder) 只移除索引记录，不删除或改写小说目录中的文件。
+Seed(folders) 仅当索引不存在时，读取调用者明确提供的已知小说目录进行初始化，不递归扫描。缺失、损坏、仅剩 .bak 或无法读取的已知小说也保留：以目录名为标题，统计和时间使用默认值，IsAvailable=false，Problem 保存异常信息。不会自动读取或恢复 .bak；界面可让用户打开小说后采用原有恢复流程。仅跳过非法路径语法。没有有效路径时仍写入空数组。已有索引时立即返回，不枚举参数，故从书架移除的小说不会下次启动自动重现。调用者不得将任意磁盘目录当作已知小说传入。
+
+每次操作使用同目录 bookshelf.json.lock 的独占文件锁，竞争时最多等待 5 秒。修改时在锁内重新读取磁盘索引，因此旧窗口不会覆盖其他窗口刚添加的小说。
+写入时先在同目录写入唯一临时文件并 Flush(true)，随后原子替换已有文件或移动为新文件。正常成功和失败路径均清理本次临时文件。
+JSON 语法损坏、空文件或根节点不是数组（含 null）时，Read/Refresh/Remember/Forget 抛出 InvalidDataException，保留原文件。Seed 不改写任何已有索引。调用者可提示用户保留原文件后人工处理，并继续提供直接打开小说的入口。
+合法数组内的 null、非对象、缺失/非法目录或字段类型无效的记录会被跳过；空标题和简介归一为空字符串，负统计归零。重复记录优先保留最近打开、最近更新的一份。Read 本身不重写索引，下次成功修改时会写入规范化结果。
+锁协调墨舟实例；不协调绕过锁直接修改索引的外部程序。正文刷新失败不会自动恢复 .bak，恢复由用户打开小说后的原有流程处理。
+
+验证命令（与仓库现有测试一致，使用无第三方包的 .NET 控制台测试）：
+dotnet run --project Mozhou.Bookshelf.Tests/Mozhou.Bookshelf.Tests.csproj --disable-build-servers

@@ -1,0 +1,28 @@
+**/bin/
+**/obj/
+.vs/
+.superpowers/
+*.user
+
+# Generated files and local development runs
+*.log
+*.binlog
+*.zip
+/work-protocol/
+/publish/
+/artifacts/
+**/test-data/
+**/fixtures/
+
+# Local manuscripts, chat history and personal settings
+**/Library/
+**/backups/
+**/.codex-workspace/
+project.mozhou.json*
+project.mozhou.lock
+assistant-chat.json*
+bookshelf.json*
+mozhou-settings.json*
+.env
+.env.*
+auth.json

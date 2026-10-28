@@ -1,0 +1,207 @@
+<Window x:Class="Mozhou.Desktop.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:Mozhou.Desktop"
+ Title="墨舟 · 小说工作台" Width="1480" Height="920" MinWidth="1180" MinHeight="720" WindowStartupLocation="CenterScreen" Closing="WindowClosing">
+ <Grid>
+ <Grid x:Name="EditorShell" Visibility="Collapsed">
+  <Grid.RowDefinitions><RowDefinition Height="78"/><RowDefinition Height="*"/><RowDefinition Height="30"/></Grid.RowDefinitions>
+  <Border Background="{StaticResource Paper}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1">
+   <Grid Margin="25,0,22,0">
+    <Grid.ColumnDefinitions><ColumnDefinition Width="145"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+     <Border Width="27" Height="29" Margin="0,0,12,0" BorderBrush="{StaticResource Accent}" BorderThickness="1" VerticalAlignment="Center">
+      <TextBlock Text="舟" FontFamily="{StaticResource DisplayFont}" FontSize="18" Foreground="{StaticResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+     </Border>
+     <TextBlock Text="墨舟" FontFamily="{StaticResource DisplayFont}" FontSize="27" VerticalAlignment="Center"/>
+    </StackPanel>
+    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="15,0,25,0">
+     <TextBlock x:Name="ProjectTitle" FontFamily="{StaticResource DisplayFont}" FontSize="21" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+     <TextBlock x:Name="ProjectDescription" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,7,0,0" TextTrimming="CharacterEllipsis"/>
+    </StackPanel>
+    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+     <Button Content="返回书架" Style="{StaticResource Ghost}" Click="ReturnToShelfClick" Margin="2,0,8,0" Foreground="{StaticResource Accent}"/>
+     <Button Content="新建小说" Style="{StaticResource Ghost}" Click="NewProjectClick" Margin="2,0"/>
+     <Button Content="打开" Style="{StaticResource Ghost}" Click="OpenProjectClick" Margin="2,0"/>
+     <Button Content="项目" Click="ProjectMenuClick" Style="{StaticResource Ghost}" Margin="2,0">
+      <Button.ContextMenu><ContextMenu>
+       <MenuItem Header="修改书名与简介" Click="RenameProjectClick"/><MenuItem Header="打开小说文件夹" Click="RevealProjectClick"/>
+       <MenuItem Header="另存当前小说副本（含全部未保存内容）" Click="SaveCopyClick"/><Separator/>
+       <MenuItem Header="导出正文 Markdown" Click="ExportMarkdownClick"/><MenuItem Header="导出正文 TXT" Click="ExportTextClick"/>
+       <MenuItem Header="打包备份 ZIP" Click="BackupClick"/><MenuItem Header="恢复上一次保存" Click="RestoreClick"/>
+      </ContextMenu></Button.ContextMenu>
+     </Button>
+     <Border Width="1" Height="18" Background="{StaticResource Line}" Margin="12,0"/>
+     <Button x:Name="FocusButton" Content="专注写作" Click="FocusClick" Margin="3,0,0,0" Background="Transparent" FontSize="12"/>
+    </StackPanel>
+   </Grid>
+  </Border>
+
+  <Grid Grid.Row="1">
+   <Grid.ColumnDefinitions><ColumnDefinition x:Name="NavColumn" Width="154"/><ColumnDefinition x:Name="ListColumn" Width="216"/><ColumnDefinition Width="*"/><ColumnDefinition x:Name="AssistantColumn" Width="316"/></Grid.ColumnDefinitions>
+   <Border x:Name="NavigationPane" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+    <DockPanel>
+     <StackPanel DockPanel.Dock="Bottom" Margin="26,16">
+      <Border Height="1" Background="{StaticResource Line}" Margin="0,0,0,17"/>
+      <TextBlock Text="手稿字数" FontSize="11" Foreground="{StaticResource Muted}"/>
+      <TextBlock x:Name="TotalWords" FontFamily="Georgia" FontSize="26" Margin="0,7,0,18"/>
+      <Button Content="使用说明" Click="HelpClick" Style="{StaticResource Ghost}" HorizontalAlignment="Left" Padding="0,5" FontSize="11" MinHeight="25"/>
+     </StackPanel>
+     <StackPanel x:Name="NavStack" Margin="0,29,0,0">
+      <TextBlock Text="创作空间" FontSize="11" Foreground="{StaticResource Muted}" Margin="26,0,0,18"/>
+      <Button Style="{StaticResource NavButton}" Tag="chapter" Click="NavClick" AutomationProperties.Name="正文写作"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource BookIcon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,12,0"/><TextBlock Text="正文写作"/></StackPanel></Button>
+      <Button Style="{StaticResource NavButton}" Tag="character" Click="NavClick" AutomationProperties.Name="人设档案"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource PersonIcon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,12,0"/><TextBlock Text="人设档案"/></StackPanel></Button>
+      <Button Style="{StaticResource NavButton}" Tag="graph" Click="NavClick" AutomationProperties.Name="人物关系"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource GraphIcon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,12,0"/><TextBlock Text="人物关系"/></StackPanel></Button>
+      <Button Style="{StaticResource NavButton}" Tag="outline" Click="NavClick" AutomationProperties.Name="故事大纲"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource OutlineIcon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,12,0"/><TextBlock Text="故事大纲"/></StackPanel></Button>
+      <Button Style="{StaticResource NavButton}" Tag="world" Click="NavClick" AutomationProperties.Name="世界观"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource WorldIcon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,12,0"/><TextBlock Text="世界观"/></StackPanel></Button>
+      <Button Style="{StaticResource NavButton}" Tag="note" Click="NavClick" AutomationProperties.Name="灵感笔记"><StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="{StaticResource NoteIcon}" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Margin="0,0,12,0"/><TextBlock Text="灵感笔记"/></StackPanel></Button>
+     </StackPanel>
+    </DockPanel>
+   </Border>
+
+   <Border x:Name="ListPane" Grid.Column="1" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+    <Grid Margin="14,24,14,16">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <Grid Margin="6,0,0,19"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="SectionTitle" FontFamily="{StaticResource DisplayFont}" FontSize="19" VerticalAlignment="Center"/>
+      <Button Grid.Column="1" Click="AddEntryClick" Style="{StaticResource Ghost}" Padding="7" ToolTip="新建条目" AutomationProperties.Name="新建条目"><Path Style="{StaticResource Icon}" Data="{StaticResource PlusIcon}" Width="14" Height="14"/></Button>
+     </Grid>
+     <Border Grid.Row="1" Background="Transparent" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Margin="0,0,0,16">
+      <Grid><Path Style="{StaticResource Icon}" Data="{StaticResource SearchIcon}" Width="13" Height="13" HorizontalAlignment="Left" Margin="10,0,0,0"/>
+       <TextBox x:Name="SearchBox" Padding="30,8,8,8" Background="Transparent" BorderThickness="0" TextChanged="SearchChanged" ToolTip="搜索标题、摘要、标签和正文" AutomationProperties.Name="搜索条目" FontSize="12"/>
+       <TextBlock Text="搜索内容" Margin="31,0,0,0" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center" IsHitTestVisible="False">
+        <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=SearchBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+       </TextBlock>
+      </Grid>
+     </Border>
+     <ListBox x:Name="EntryList" Grid.Row="2" Background="Transparent" BorderThickness="0" SelectionChanged="EntrySelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+      <ListBox.ItemTemplate><DataTemplate><StackPanel>
+       <TextBlock Text="{Binding Group}" FontSize="11" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Margin" Value="0,0,0,8"/><Style.Triggers><DataTrigger Binding="{Binding Group}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+       <TextBlock Text="{Binding Title}" FontFamily="{StaticResource DisplayFont}" FontSize="15" TextTrimming="CharacterEllipsis"/>
+       <TextBlock Text="{Binding Summary}" Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" MaxHeight="34" TextTrimming="CharacterEllipsis"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Margin" Value="0,7,0,0"/><Style.Triggers><DataTrigger Binding="{Binding Summary}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+      </StackPanel></DataTemplate></ListBox.ItemTemplate>
+     </ListBox>
+     <Grid Grid.Row="3" Margin="6,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="EntryCount" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
+      <StackPanel Grid.Column="1" Orientation="Horizontal"><Button Content="↑" Style="{StaticResource Ghost}" Click="MoveUpClick" Padding="8,2" MinHeight="26" ToolTip="上移" AutomationProperties.Name="上移"/><Button Content="↓" Style="{StaticResource Ghost}" Click="MoveDownClick" Padding="8,2" MinHeight="26" ToolTip="下移" AutomationProperties.Name="下移"/></StackPanel>
+     </Grid>
+    </Grid>
+   </Border>
+
+   <Grid Grid.Column="2" x:Name="WorkspacePane" Background="{StaticResource Surface}">
+    <Grid x:Name="EditorPane" Margin="25,24,25,16" MaxWidth="900">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <Grid Margin="3,0,0,20"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="EditorBreadcrumb" FontSize="11" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+      <Button Grid.Column="1" Content="删除条目" Style="{StaticResource Ghost}" Click="DeleteEntryClick" FontSize="11" Padding="7,3" MinHeight="24" Margin="12,0,0,0"/>
+     </Grid>
+     <Border Grid.Row="1" Background="{StaticResource Paper}" BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,1" MaxWidth="840">
+      <Grid Margin="32,33,32,22">
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+       <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel>
+       <TextBlock Text="{Binding Text, ElementName=GroupBox}" FontSize="11" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,0,0,15">
+        <TextBlock.Style><Style TargetType="TextBlock"><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=GroupBox}" Value=""><Setter Property="Visibility" Value="Collapsed"/></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+       </TextBlock>
+       <TextBox x:Name="TitleBox" FontFamily="{StaticResource DisplayFont}" FontSize="29" TextWrapping="Wrap" MaxHeight="108" VerticalScrollBarVisibility="Auto" Background="Transparent" BorderThickness="0" Padding="0,3" Margin="0,0,0,14" TextChanged="EditorChanged" AutomationProperties.Name="标题"/>
+       <Expander x:Name="MetadataExpander" Header="分类、标签与摘要" FontSize="11">
+        <StackPanel>
+         <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+          <StackPanel Margin="0,0,7,0"><TextBlock x:Name="GroupLabel" Text="分卷 / 分类" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,0,0,6"/><TextBox x:Name="GroupBox" TextChanged="EditorChanged" FontSize="12" AutomationProperties.Name="分卷或分类"/></StackPanel>
+          <StackPanel Grid.Column="1" Margin="7,0,0,0"><TextBlock Text="标签 · 逗号分隔" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,0,0,6"/><TextBox x:Name="TagsBox" TextChanged="EditorChanged" FontSize="12" AutomationProperties.Name="标签"/></StackPanel>
+         </Grid>
+         <TextBox x:Name="SummaryBox" Margin="0,10,0,0" TextChanged="EditorChanged" FontSize="12" TextWrapping="Wrap" MinHeight="34" MaxHeight="82" VerticalScrollBarVisibility="Auto" ToolTip="一句话摘要" AutomationProperties.Name="摘要"/>
+        </StackPanel>
+       </Expander>
+       <Grid Height="2" Margin="0,15,0,22"><Border Height="1" Background="{StaticResource Line}" VerticalAlignment="Center"/><Border Width="28" Background="{StaticResource Accent}" HorizontalAlignment="Left"/></Grid>
+        </StackPanel>
+       </ScrollViewer>
+       <TextBox x:Name="ContentBox" Grid.Row="1" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Background="Transparent" FontSize="18" FontFamily="{StaticResource DisplayFont}" TextBlock.LineHeight="31" TextBlock.LineStackingStrategy="BlockLineHeight" Padding="0,2,0,0" VerticalContentAlignment="Top" TextChanged="EditorChanged" IsUndoEnabled="True" UndoLimit="1000" AutomationProperties.Name="正文编辑器"/>
+      </Grid>
+     </Border>
+     <Grid Grid.Row="2" Margin="3,13,3,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock x:Name="EntryWords" FontSize="11" Foreground="{StaticResource Muted}"/><TextBlock Grid.Column="1" Text="自动保存  /  Ctrl + S" Foreground="{StaticResource Muted}" FontSize="11"/>
+     </Grid>
+    </Grid>
+
+    <Grid x:Name="GraphPane" Visibility="Collapsed" Margin="26,28,26,16">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel><TextBlock Text="人物之间" FontFamily="{StaticResource DisplayFont}" FontSize="29"/><TextBlock Text="每一条关系，都是故事的另一种可能。" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,9,0,0"/></StackPanel>
+      <Button Grid.Column="1" Content="建立关系" VerticalAlignment="Top" Click="AddRelationClick" Style="{StaticResource Primary}" FontSize="12" Margin="12,0,0,0"/>
+     </Grid>
+     <Grid Grid.Row="1" Margin="0,25,0,16"><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <ComboBox x:Name="GraphFocus" Width="138" SelectionChanged="GraphFocusChanged" FontSize="12" AutomationProperties.Name="聚焦人物"/>
+      <Button Grid.Column="2" Content="整理布局" Click="ArrangeGraphClick" Style="{StaticResource Ghost}" FontSize="11"/>
+     </Grid>
+     <Border Grid.Row="2" Background="{StaticResource Paper}" BorderBrush="{StaticResource Line}" BorderThickness="1" ClipToBounds="True"><local:GraphView x:Name="CharacterGraph"/></Border>
+     <TextBlock Grid.Row="3" Text="拖动调整位置 · 双击打开人物 · 点击连线标签编辑" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,13,0,0"/>
+    </Grid>
+    <StackPanel x:Name="EmptyPane" Visibility="Collapsed" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="30"><Border Height="2" Width="30" HorizontalAlignment="Center" Background="{StaticResource Accent}" Margin="0,0,0,24"/><TextBlock Text="故事，从这里开始。" FontFamily="{StaticResource DisplayFont}" FontSize="27" Margin="0,0,0,16"/><TextBlock Text="写下一个人物，或第一段文字。" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" FontSize="12"/><Button Content="新建条目" Click="AddEntryClick" Style="{StaticResource Primary}" Margin="50,24"/></StackPanel>
+   </Grid>
+
+   <Border Grid.Column="3" x:Name="AssistantPane" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,0">
+    <Grid Margin="21,28,21,18">
+     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+     <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel><TextBlock Text="创作搭档" FontFamily="{StaticResource DisplayFont}" FontSize="20"/><TextBlock Text="Codex · 共用现有账号额度" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,8,0,0"/></StackPanel>
+      <Button Grid.Column="1" Click="CodexSettingsClick" Style="{StaticResource Ghost}" Padding="7" VerticalAlignment="Top" ToolTip="选择 Codex 路径" AutomationProperties.Name="Codex 路径设置"><Path Style="{StaticResource Icon}" Data="{StaticResource SettingsIcon}"/></Button>
+     </Grid>
+     <StackPanel Grid.Row="1" Margin="0,22,0,0">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <TextBlock x:Name="ConnectionStatus" Text="● 尚未连接" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
+       <Button Grid.Column="1" x:Name="ConnectButton" Content="连接 Codex" Click="ConnectClick" Padding="9,5" MinHeight="28" FontSize="11" Background="Transparent"/>
+      </Grid>
+      <ComboBox x:Name="ModelPicker" Margin="0,10,0,0" DisplayMemberPath="DisplayName" SelectedValuePath="Id" IsEnabled="False" ToolTip="账号实际可用模型" FontSize="12"/>
+     </StackPanel>
+     <StackPanel Grid.Row="2" Margin="0,12,0,0">
+      <CheckBox x:Name="IncludeSettings" Content="附带人物、大纲与世界观" FontSize="11" IsChecked="True"/>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+       <TextBlock Text="包含当前条目" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
+       <Button Grid.Column="1" Content="查看上下文" Click="ContextClick" Style="{StaticResource Ghost}" Padding="0,4" MinHeight="24" FontSize="11"/>
+      </Grid>
+      <Border Height="1" Background="{StaticResource Line}" Margin="0,15,0,0"/>
+     </StackPanel>
+     <ScrollViewer x:Name="ChatScroll" Grid.Row="3" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,12,0,8">
+      <StackPanel x:Name="ChatMessages">
+       <StackPanel Margin="2,30,2,24">
+        <Border Height="1" Width="30" Background="{StaticResource Accent}" HorizontalAlignment="Left" Margin="0,0,0,20"/>
+        <TextBlock Text="一起推敲下一段。" FontFamily="{StaticResource DisplayFont}" FontSize="20" Margin="0,0,0,14"/>
+        <TextBlock Text="续写情节、梳理人物动机，或检查设定之间的矛盾。" Foreground="{StaticResource Muted}" FontSize="12" TextWrapping="Wrap" LineHeight="22"/>
+        <TextBlock Text="写下想法，让故事继续。" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,12,0,0"/>
+       </StackPanel>
+      </StackPanel>
+     </ScrollViewer>
+     <StackPanel Grid.Row="4">
+      <WrapPanel Margin="0,0,0,9">
+       <Button Content="续写情节" Tag="请根据当前章节和已提供的设定，续写一段自然衔接的情节。保持人物性格和叙述视角一致，只返回可以接在原文后面的正文。" Click="PromptChipClick" Background="Transparent" FontSize="11" Padding="8,5" MinHeight="28" Margin="0,0,5,5"/>
+       <Button Content="检查矛盾" Tag="请检查当前条目与已提供设定之间的矛盾，给出原文依据和修改建议。把确定冲突与可能需要我确认的问题分开。" Click="PromptChipClick" Background="Transparent" FontSize="11" Padding="8,5" MinHeight="28" Margin="0,0,5,5"/>
+       <Button Content="人物动机" Tag="请分析当前人物或章节中人物的欲望、恐惧、行为动机和关系冲突，给出三个可供选择的深化方向。未提供的设定请明确标注为创作建议。" Click="PromptChipClick" Background="Transparent" FontSize="11" Padding="8,5" MinHeight="28" Margin="0,0,0,5"/>
+      </WrapPanel>
+      <Border Background="{StaticResource Paper}" BorderBrush="{StaticResource Line}" BorderThickness="1" CornerRadius="2">
+       <StackPanel>
+        <Grid>
+         <TextBox x:Name="PromptBox" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="88" MaxHeight="150" VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top" Background="Transparent" BorderThickness="0" Padding="13,12" FontSize="12" ToolTip="Ctrl+Enter 发送" KeyDown="PromptKeyDown" AutomationProperties.Name="给 Codex 的消息"/>
+         <TextBlock Text="描述你的创作想法…" Margin="13,13,0,0" FontSize="12" Foreground="{StaticResource Muted}" IsHitTestVisible="False" VerticalAlignment="Top"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding Text, ElementName=PromptBox}" Value=""><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+        </Grid>
+        <Grid Margin="12,0,10,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+         <TextBlock x:Name="AiStatus" Text="Ctrl + Enter" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+         <Button Grid.Column="1" x:Name="CancelButton" Content="停止" Style="{StaticResource Ghost}" Click="CancelClick" Visibility="Collapsed" Padding="8,5" FontSize="11" MinHeight="28"/>
+         <Button Grid.Column="2" x:Name="SendButton" Content="发送 ↑" Style="{StaticResource Primary}" Click="SendClick" IsEnabled="False" FontSize="11" Padding="12,5" MinHeight="29"/>
+        </Grid>
+       </StackPanel>
+      </Border>
+     </StackPanel>
+     <TextBlock Grid.Row="5" Text="生成的文字，由你决定是否采用。" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,11,0,0"/>
+    </Grid>
+   </Border>
+  </Grid>
+
+  <Border Grid.Row="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
+   <Grid Margin="24,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <TextBlock x:Name="SaveStatus" Text="正在打开小说…" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+    <Button Grid.Column="1" Content="小说文件夹 ↗" Click="RevealProjectClick" Style="{StaticResource Ghost}" FontSize="11" MinHeight="22" Padding="0,2" ToolTip="{Binding Text, ElementName=PathStatus}"/>
+    <TextBlock x:Name="PathStatus" Visibility="Collapsed"/>
+   </Grid>
+  </Border>
+ </Grid>
+ <local:BookshelfView x:Name="ShelfPane"/>
+ </Grid>
+</Window>
