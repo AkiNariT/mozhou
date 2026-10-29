@@ -55,5 +55,5 @@ public static class Dialogs
         panel.Children.Add(row);
         bool accepted = window.ShowDialog() == true; remove = delete; return accepted;
     }
-    private static Window Shell(Window owner, string title, double width, double height) => new() { Owner = owner, Title = title, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.CanResize, MinWidth = width - 80, MinHeight = height - 50, ShowInTaskbar = false };
+    private static Window Shell(Window owner, string title, double width, double height) => new() { Owner = owner, Icon = owner.Icon, Title = title, Width = width, Height = height, WindowStartupLocation = WindowStartupLocation.CenterOwner, ResizeMode = ResizeMode.CanResize, MinWidth = width - 80, MinHeight = height - 50, ShowInTaskbar = false };
 }

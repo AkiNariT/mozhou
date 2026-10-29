@@ -25,9 +25,7 @@
   <Grid Margin="42,0">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-    <Border Width="27" Height="29" BorderBrush="{StaticResource Accent}" BorderThickness="1" Margin="0,0,13,0">
-     <TextBlock Text="舟" FontFamily="{DynamicResource DisplayFont}" Foreground="{StaticResource Accent}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-    </Border>
+    <Image Width="27" Height="29" Margin="0,0,13,0" Source="pack://application:,,,/Mozhou;component/Assets/Mozhou.ico" RenderOptions.BitmapScalingMode="HighQuality"/>
     <TextBlock Text="墨舟" FontFamily="{DynamicResource DisplayFont}" FontSize="24" VerticalAlignment="Center"/>
     <TextBlock Text="小说工作台" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" Margin="22,3,0,0"/>
    </StackPanel>

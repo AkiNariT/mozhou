@@ -1,0 +1,35 @@
+墨舟 0.4.2 软件图标 · 2026-10-29
+
+设计
+沿用文学书刊视觉语言：朱砂印面 #9A4A3B、暖白舟字 #FFFCF6、透明外缘。
+舟字采用手绘矢量轮廓，不依赖字体文件或在线图片。圆角印面在小尺寸下保留清楚的轮廓。
+源文件：Mozhou.Desktop/Assets/Mozhou.svg。
+导出文件：Mozhou.png（256px）、Mozhou.ico（10 帧）。
+
+接入
+csproj 的 ApplicationIcon 将 ICO 写入 EXE 的 Win32 资源。
+同一 ICO 作为 WPF Resource 打包，通过带 Mozhou 程序集名的 pack URI 供主窗口和页头读取。
+Dialogs.Shell 显式设置 Icon=owner.Icon，让普通对话框使用相同图标。
+书架与编辑页保持原来的图标布局尺寸，等比显示。
+
+生成
+Windows + .NET 8 SDK，无第三方包：
+  dotnet run --project tools/GenerateIcon -c Release -- Mozhou.Desktop/Assets
+可追加第二个参数生成预览 PNG，路径由调用者指定。
+工具仅解析当前 SVG 使用的纯色 path；更换为其他 SVG 元素时应相应扩展工具。
+ICO 的 16、20、24、32、40、48、64、96、128 帧采用 32 位 DIB 与透明遮罩，256 帧采用 PNG。
+
+实际验证
+生成器与桌面构建成功，0 警告、0 错误。
+WPF 解码器读回全部 10 个尺寸；解码顺序可能由 WIC 重排，校验尺寸集合而不依赖原文件顺序。
+人工查看大图与 16/20/24/32/48/64/128 像素预览，确认舟字可辨。
+Desktop.Tests：122/122，通过外部测试宿主创建 MainWindow 与 BookshelfView，pack URI 正常解析。
+Release 发布成功；程序集版本 0.4.2.0。
+从发布 EXE 提取图标得到 32×32 位图，匹配朱砂色的像素为 570，确认 EXE 已使用新图标。
+实际启动发布目录中的程序，窗口标题栏、书架页头及新建小说对话框显示新图标。没有提交新建小说。
+本次未请求 AI、未修改小说数据格式；不宣称已验证所有 Windows 版本或 DPI 组合。
+
+发行
+独立目录 Mozhou-0.4.2，本机沿用 0.4.1 的书架与设置，小说仍在原文件夹。
+干净 ZIP 不含小说、聊天、书架或本机设置。
+旧快捷方式指向旧 EXE 时不会自动获得新版本图标，请从新版目录启动。

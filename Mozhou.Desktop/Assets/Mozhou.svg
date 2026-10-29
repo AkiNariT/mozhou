@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">墨舟 · 藏书印</title>
+  <desc id="desc">朱砂色印面，暖白色手绘舟字。透明外缘，无字体和外部资源依赖。</desc>
+  <path fill="#9A4A3B" d="M56 16 H200 C222 16 240 34 240 56 V200 C240 222 222 240 200 240 H56 C34 240 16 222 16 200 V56 C16 34 34 16 56 16 Z"/>
+  <path fill="#FFFCF6" d="M137 44 L151 53 C140 64 127 73 110 81 L102 75 C118 63 129 53 137 44 Z"/>
+  <path fill="#FFFCF6" d="M87 78 L102 78 L99 145 C97 170 88 188 72 203 L63 195 C77 177 83 160 85 138 Z"/>
+  <path fill="#FFFCF6" d="M94 76 H177 V185 C177 199 169 207 156 207 L140 194 L141 185 L155 190 Q162 192 162 181 V90 H94 Z"/>
+  <path fill="#FFFCF6" d="M55 131 H201 V144 H55 Z"/>
+  <path fill="#FFFCF6" d="M115 99 L131 108 L127 120 L111 110 Z"/>
+  <path fill="#FFFCF6" d="M115 158 L131 168 L126 180 L111 170 Z"/>
+</svg>

@@ -1,8 +1,10 @@
 # 墨舟 Mozhou
 
+<img src="Mozhou.Desktop/Assets/Mozhou.png" width="96" height="96" alt="墨舟藏书印图标">
+
 一个安静、温润的 Windows 本地小说写作工具。以暖白纸色、宋体、留白和书刊装帧为设计基础，把正文、人物和故事世界放在同一个工作台里。
 
-当前版本：**0.4.1**。使用 C#、.NET 8 和 WPF 开发，无第三方 NuGet 依赖。
+当前版本：**0.4.2**。使用 C#、.NET 8 和 WPF 开发，无第三方 NuGet 依赖。
 
 ## 能做什么
 
@@ -67,6 +69,16 @@ dotnet run --project Mozhou.Desktop.Tests -c Debug -p:BuildInParallel=false
 Codex 协议测试启动受控模拟子进程，不调用真实模型。请通过 `dotnet run` 或构建出的测试 EXE 运行，避免用 `dotnet Mozhou.Codex.Tests.dll` 启动：该 runner 依赖自身 EXE 路径创建模拟服务器。
 
 0.4.1 在开发电脑上通过 **196 项检查**。详细范围见 [优化与验证记录](docs/optimization-0.4.1.txt)。
+
+## 0.4.2 软件图标
+
+原创“藏书印”图标：朱砂印面、暖白手绘舟字，矢量轮廓不依赖字体。EXE、窗口、任务栏、对话框及书架/编辑器页头使用同一图标。
+
+ICO 包含 16、20、24、32、40、48、64、96、128、256 像素透明图层。SVG、PNG 和 ICO 位于 `Mozhou.Desktop/Assets`；在 Windows 上可重新生成：
+
+```powershell
+dotnet run --project tools/GenerateIcon -c Release -- Mozhou.Desktop/Assets
+```
 
 ## 0.4.1 优化
 
