@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>Mozhou</AssemblyName><Product>墨舟 · 小说工作台</Product><Version>0.4.2</Version><ApplicationIcon>Assets/Mozhou.ico</ApplicationIcon></PropertyGroup>
+  <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net8.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><AssemblyName>Mozhou</AssemblyName><Product>墨舟 · 小说工作台</Product><Version>0.4.3</Version><ApplicationIcon>Assets/Mozhou.ico</ApplicationIcon></PropertyGroup>
   <ItemGroup><ProjectReference Include="../Mozhou.Core/Mozhou.Core.csproj"/><ProjectReference Include="../Mozhou.Codex/Mozhou.Codex.csproj"/></ItemGroup>
   <ItemGroup><Resource Include="Assets/Mozhou.ico"/></ItemGroup>
 </Project>

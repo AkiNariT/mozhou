@@ -1,11 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
-  <title id="title">墨舟 · 藏书印</title>
-  <desc id="desc">朱砂色印面，暖白色手绘舟字。透明外缘，无字体和外部资源依赖。</desc>
-  <path fill="#9A4A3B" d="M56 16 H200 C222 16 240 34 240 56 V200 C240 222 222 240 200 240 H56 C34 240 16 222 16 200 V56 C16 34 34 16 56 16 Z"/>
-  <path fill="#FFFCF6" d="M137 44 L151 53 C140 64 127 73 110 81 L102 75 C118 63 129 53 137 44 Z"/>
-  <path fill="#FFFCF6" d="M87 78 L102 78 L99 145 C97 170 88 188 72 203 L63 195 C77 177 83 160 85 138 Z"/>
-  <path fill="#FFFCF6" d="M94 76 H177 V185 C177 199 169 207 156 207 L140 194 L141 185 L155 190 Q162 192 162 181 V90 H94 Z"/>
-  <path fill="#FFFCF6" d="M55 131 H201 V144 H55 Z"/>
-  <path fill="#FFFCF6" d="M115 99 L131 108 L127 120 L111 110 Z"/>
-  <path fill="#FFFCF6" d="M115 158 L131 168 L126 180 L111 170 Z"/>
+  <title id="title">墨舟 · 朱砂折带</title>
+  <desc id="desc">暖白底上，一条朱砂折带将书页与舟连接，S形留白穿过三个折面。根据选定的 C 方案整理为矢量轮廓，无字体或外部资源依赖。</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFCF6"/><stop offset="1" stop-color="#EDE5D8"/>
+    </linearGradient>
+    <linearGradient id="page" x1="1" y1="0" x2="0" y2="0.9">
+      <stop offset="0" stop-color="#C77356"/><stop offset="0.54" stop-color="#B4563E"/><stop offset="1" stop-color="#813225"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2="1" y2="0.7">
+      <stop offset="0" stop-color="#C46A4F"/><stop offset="0.6" stop-color="#A84634"/><stop offset="1" stop-color="#773026"/>
+    </linearGradient>
+    <linearGradient id="hull" x1="0.1" y1="0.85" x2="0.75" y2="0">
+      <stop offset="0" stop-color="#8D3529"/><stop offset="0.5" stop-color="#A34130"/><stop offset="1" stop-color="#B95740"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#paper)" d="M64 16 H192 C219 16 240 37 240 64 V192 C240 219 219 240 192 240 H64 C37 240 16 219 16 192 V64 C16 37 37 16 64 16 Z"/>
+  <path fill="url(#page)" transform="matrix(0.25 0 0 0.25 -29 -29)" d="M360 480 C360 454 399 439 437 421 L624 337 C642 329 653 320 657 310 C673 322 679 337 679 357 V656 C659 636 626 623 597 610 L402 528 C375 514 360 499 360 480 Z"/>
+  <path fill="url(#fold)" transform="matrix(0.25 0 0 0.25 -29 -29)" d="M360 480 C355 501 376 521 405 534 L598 622 C627 635 645 648 645 666 C645 682 623 695 592 708 L445 779 C410 797 382 818 386 845 C388 859 397 871 414 882 C375 861 360 829 360 787 Z"/>
+  <path fill="url(#hull)" transform="matrix(0.25 0 0 0.25 -29 -29)" d="M389 855 C395 829 430 813 475 793 C615 730 797 662 978 651 L889 817 C865 865 846 906 795 909 H508 C448 909 407 887 389 855 Z"/>
 </svg>

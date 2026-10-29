@@ -22,9 +22,34 @@ internal static class Program
         var assets = Path.GetFullPath(args[0]);
         var svg = XDocument.Load(Path.Combine(assets, "Mozhou.svg"));
         XNamespace ns = "http://www.w3.org/2000/svg";
+        var gradients = svg.Descendants(ns + "linearGradient").ToDictionary(
+            element => (string)element.Attribute("id")!,
+            element => new LinearGradientBrush(
+                new GradientStopCollection(element.Elements(ns + "stop").Select(stop => new GradientStop(
+                    (Color)ColorConverter.ConvertFromString((string)stop.Attribute("stop-color")!),
+                    double.Parse((string)stop.Attribute("offset")!, CultureInfo.InvariantCulture)))),
+                new Point(Number(element, "x1"), Number(element, "y1")),
+                new Point(Number(element, "x2"), Number(element, "y2"))));
+        Brush Fill(string value) => value.StartsWith("url(#", StringComparison.Ordinal)
+            ? gradients[value[5..^1]]
+            : (Brush)new BrushConverter().ConvertFromInvariantString(value)!;
+        Geometry Shape(XElement element)
+        {
+            var geometry = Geometry.Parse((string)element.Attribute("d")!).Clone();
+            if (element.Attribute("transform") is { } transform)
+            {
+                if (!transform.Value.StartsWith("matrix(", StringComparison.Ordinal) || !transform.Value.EndsWith(')'))
+                    throw new InvalidDataException("Only matrix SVG transforms are supported.");
+                var matrix = transform.Value[7..^1].Split([' ', ','], StringSplitOptions.RemoveEmptyEntries)
+                    .Select(value => double.Parse(value, CultureInfo.InvariantCulture)).ToArray();
+                if (matrix.Length != 6) throw new InvalidDataException("SVG matrix must contain six values.");
+                geometry.Transform = new MatrixTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+            }
+            return geometry;
+        }
         var paths = svg.Root!.Elements(ns + "path").Select(element => (
-            Geometry: Geometry.Parse((string)element.Attribute("d")!),
-            Brush: (Brush)new BrushConverter().ConvertFromInvariantString((string)element.Attribute("fill")!)!
+            Geometry: Shape(element),
+            Brush: Fill((string)element.Attribute("fill")!)
         )).ToArray();
         var frames = Sizes.Select(size => Render(size, context =>
         {
@@ -66,6 +91,8 @@ internal static class Program
         }
         Console.WriteLine($"Created and decoded ICO frames: {string.Join(", ", Sizes)}. SVG contains no font dependency.");
     }
+
+    private static double Number(XElement element, string name) => double.Parse((string)element.Attribute(name)!, CultureInfo.InvariantCulture);
 
     private static RenderTargetBitmap Render(int size, Action<DrawingContext> draw)
     {
@@ -109,10 +136,10 @@ internal static class Program
             context.DrawText(new FormattedText(text, CultureInfo.GetCultureInfo("zh-CN"), FlowDirection.LeftToRight, new Typeface(font), size, Color(color), 1), new Point(x, y));
         context.DrawRectangle(Color("#F3EFE6"), null, new Rect(0, 0, 1000, 1000));
         Text("MOZHOU  /  墨舟", 60, 48, 17, "#716A61");
-        Text("把故事，落成一枚印。", 60, 93, 38, "#2C2824", "SimSun");
+        Text("一页，成舟。", 60, 93, 38, "#2C2824", "SimSun");
         context.DrawImage(frames[^1], new Rect(340, 190, 320, 320));
-        Text("藏书印", 440, 535, 29, "#2C2824", "SimSun");
-        Text("朱砂  #9A4A3B   ·   纸白  #FFFCF6", 320, 584, 17, "#716A61");
+        Text("朱砂折带", 423, 535, 29, "#2C2824", "SimSun");
+        Text("书页与舟的折面   ·   S 形留白", 350, 584, 17, "#716A61");
         context.DrawLine(new Pen(Color("#DCD5C8"), 1), new Point(60, 643), new Point(940, 643));
         Text("实际像素尺寸", 60, 676, 15, "#716A61");
         var indexes = new[] { 0, 1, 2, 3, 5, 6, 8 };
@@ -122,6 +149,6 @@ internal static class Program
             context.DrawImage(frame, new Rect(center - frame.PixelWidth / 2.0, 776 - frame.PixelHeight / 2.0, frame.PixelWidth, frame.PixelHeight));
             Text(frame.PixelWidth + " px", center - 20, 860, 13, "#716A61");
         }
-        Text("原创矢量轮廓 · 透明外缘 · EXE / 任务栏 / 窗口统一图标", 60, 937, 15, "#716A61");
+        Text("C 方案矢量定稿 · 透明外缘 · EXE / 任务栏 / 窗口统一图标", 60, 937, 15, "#716A61");
     }
 }
