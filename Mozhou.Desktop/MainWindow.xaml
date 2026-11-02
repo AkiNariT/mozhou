@@ -20,8 +20,8 @@
      <Button Content="打开" Style="{StaticResource Ghost}" Click="OpenProjectClick" Margin="2,0"/>
      <Button Content="项目" Click="ProjectMenuClick" Style="{StaticResource Ghost}" Margin="2,0">
       <Button.ContextMenu><ContextMenu>
-       <MenuItem Header="修改书名与简介" Click="RenameProjectClick"/><MenuItem Header="打开小说文件夹" Click="RevealProjectClick"/>
-       <MenuItem Header="另存当前小说副本（含全部未保存内容）" Click="SaveCopyClick"/><Separator/>
+       <MenuItem Header="修改书名与简介" Click="RenameProjectClick"/><MenuItem Header="在资源管理器中显示" Click="RevealProjectClick"/>
+       <MenuItem Header="另存为墨舟文档…" Click="SaveCopyClick" ToolTip="包含全部未保存内容、设定、关系网与图片，原稿保留"/><Separator/>
        <MenuItem Header="导出正文 Markdown" Click="ExportMarkdownClick"/><MenuItem Header="导出正文 TXT" Click="ExportTextClick"/>
        <MenuItem Header="打包备份 ZIP" Click="BackupClick"/><MenuItem Header="恢复上一次保存" Click="RestoreClick"/>
       </ContextMenu></Button.ContextMenu>
@@ -196,7 +196,7 @@
   <Border Grid.Row="2" Background="{StaticResource Surface}" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0">
    <Grid Margin="24,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
     <TextBlock x:Name="SaveStatus" Text="正在打开小说…" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-    <Button Grid.Column="1" Content="小说文件夹 ↗" Click="RevealProjectClick" Style="{StaticResource Ghost}" FontSize="11" MinHeight="22" Padding="0,2" ToolTip="{Binding Text, ElementName=PathStatus}"/>
+    <Button Grid.Column="1" Content="定位小说文件 ↗" Click="RevealProjectClick" Style="{StaticResource Ghost}" FontSize="11" MinHeight="22" Padding="0,2" ToolTip="{Binding Text, ElementName=PathStatus}"/>
     <TextBlock x:Name="PathStatus" Visibility="Collapsed"/>
    </Grid>
   </Border>

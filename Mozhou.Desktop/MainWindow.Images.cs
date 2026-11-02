@@ -20,7 +20,7 @@ public partial class MainWindow
         };
     }
 
-    private void RefreshReferenceImages() => ReferenceImages.SetImages(_store?.Folder, _selected?.Images ?? []);
+    private void RefreshReferenceImages() => ReferenceImages.SetImages(_store?.Images, _selected?.Images ?? []);
 
     private void ClearReferenceImages()
     {
@@ -39,7 +39,7 @@ public partial class MainWindow
         if (_store == null || _selected == null) return;
         var dialog = new OpenFileDialog
         {
-            Title = "添加参考图 · 图片将复制到小说文件夹",
+            Title = "添加参考图 · 图片将随小说一起保存",
             Filter = "图片（PNG、JPEG、BMP、GIF）|*.png;*.jpg;*.jpeg;*.bmp;*.gif",
             Multiselect = true,
             CheckFileExists = true
@@ -54,7 +54,7 @@ public partial class MainWindow
         if (_store == null || _selected == null || paths.Length == 0 || !Flush()) return false;
         // Validate the entire selection before changing any entry associations.
         foreach (var path in paths) LocalImageLoader.Validate(path);
-        var storage = new ProjectImageStore(_store.Folder);
+        var storage = _store.Images;
         var imported = new List<EntryImage>();
         foreach (var path in paths)
         {
@@ -87,7 +87,7 @@ public partial class MainWindow
         if (_store == null || _selected == null || !_selected.Images.Contains(image)) return;
         try
         {
-            var path = new ProjectImageStore(_store.Folder).ResolvePath(image);
+            var path = _store.Images.ResolvePath(image);
             var preview = new ImagePreviewWindow(this, path, image.Title);
             CloseReferencePreview();
             _imagePreview = preview;

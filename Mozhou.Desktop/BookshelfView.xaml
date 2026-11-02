@@ -41,7 +41,7 @@
      <TextBlock Text="每一个故事，都有自己的篇章。" FontSize="13" Foreground="{StaticResource Muted}" Margin="2,12,0,0"/>
     </StackPanel>
     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="20,0,0,3">
-     <Button Content="打开小说文件夹" Style="{StaticResource Ghost}" Click="OpenExistingClick" Padding="14,10" Margin="0,0,13,0" FontSize="13" ToolTip="将现有小说加入书架"/>
+     <Button Content="打开 / 导入小说" Style="{StaticResource Ghost}" Click="OpenExistingClick" Padding="14,10" Margin="0,0,13,0" FontSize="13" ToolTip="打开 .mozhou 文档，或选择旧版 project.mozhou.json"/>
      <Button Style="{StaticResource Primary}" Click="NewClick" Padding="19,11" FontSize="13" AutomationProperties.Name="新建小说">
       <StackPanel Orientation="Horizontal"><Path Style="{StaticResource Icon}" Data="M10,3 L10,17 M3,10 L17,10" Stroke="{StaticResource Paper}" Width="13" Height="13" Margin="0,0,9,0"/><TextBlock Text="新建小说"/></StackPanel>
      </Button>
@@ -114,7 +114,7 @@
           <Button Content="{Binding OpenLabel}" Click="OpenBookClick" Style="{StaticResource Ghost}" Foreground="{StaticResource Ink}" HorizontalAlignment="Left" FontSize="13" Padding="0,8" ToolTip="{Binding OpenTooltip}"/>
           <Button Grid.Column="1" Content="···" Style="{StaticResource Ghost}" Click="BookMenuClick" FontSize="20" Padding="8,0" MinHeight="34" ToolTip="管理这本小说" AutomationProperties.Name="管理小说">
            <Button.ContextMenu><ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
-            <MenuItem Header="重新定位" Click="LocateBookClick" ToolTip="选择这本小说移动后的文件夹"/>
+            <MenuItem Header="重新定位" Click="LocateBookClick" ToolTip="选择这本小说移动后的位置"/>
             <MenuItem Header="移出书架" Click="ForgetBookClick" ToolTip="仅移除书架记录，不会删除小说文件"/>
            </ContextMenu></Button.ContextMenu>
           </Button>
@@ -148,7 +148,7 @@
   <Grid Grid.Row="2" Margin="42,0">
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <Border Grid.ColumnSpan="2" Height="1" Background="{StaticResource Line}" VerticalAlignment="Top"/>
-   <TextBlock Text="手稿保存在你选择的本地文件夹。" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
+   <TextBlock Text="一本小说，一份 .mozhou 文档。保存在你选择的位置。" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
    <TextBlock Grid.Column="1" Text="墨舟 · 创作手稿" FontFamily="{DynamicResource DisplayFont}" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
   </Grid>
  </Grid>

@@ -1,0 +1,45 @@
+独立小说文档设计与实施计划 · 2026-11-02
+
+用户已选择：一本一个完整.mozhou，包含正文、设定、关系网和图片，重新打开可继续编辑。
+现有一书一文件夹继续可读；转换/另存为新文件，不覆盖或删除旧目录。
+
+产品行为
+新建小说选择书名和.mozhou保存位置；打开/导入选择一个.mozhou或旧版project.mozhou.json。
+书架直接记录所选文件地址，定位按钮在资源管理器中选中文档。另存副本使用书名作为默认文件名。
+自动保存的成功状态意味着主.mozhou文件已提交最新稿件，不只是缓存保存。
+图片、AI聊天、最近30次稿件历史包含在文档中；复制单文件后能恢复全部内容。
+暂不自动修改系统默认文件关联；可用墨舟的打开入口，或系统“打开方式”选择Mozhou.exe。
+
+技术选型
+Windows内置winsqlite3.dll；本机已核实存在。SQLite事务容器保留现有JSON模型，图片作为二进制数据。
+DELETE回滚日志+synchronous FULL，避免必须同时携带WAL文件；保存进行中可能存在临时journal，正常提交后移除。
+按页事务更新稿件与新增历史，已有图片不在每次750ms自动保存时重新压缩或重写。
+图片预览缓存可重新生成，不是稿件保存源；仅由软件创建的GUID缓存目录可被清理。
+参考： https://learn.microsoft.com/en-us/windows/uwp/data-access/sqlite-databases
+参考： https://www.sqlite.org/atomiccommit.html
+
+任务1：事务容器与原生适配（独立代理）
+新增NativeSqlite.cs、SingleFileDocument.cs；files(name,content)映射旧文件布局，应用标识/版本检查。
+ReadFile/ListFiles；WriteFiles在同一事务内比较稿件及可选chat基线并提交全部变更。
+CreateNew用临时文件完成后不覆盖移动；CopyTo使用原生backup一致快照；ExportZip流式导出逻辑文件。
+集中释放连接和statement；UTF8参数绑定，验证逻辑文件名和大小，不执行文档提供的SQL。
+真实数据库测试涵盖中文名/二进制/冲突回滚/并发锁/格式拒绝/一致复制/备份/正常日志清理。
+
+任务2：存储兼容层（独立代理）
+ProjectStore接受旧目录或.mozhou，Location为真正保存地址，IsDocument区分，Folder仅兼容图片缓存。
+Images属性封装两种图片来源；新图片暂存，只有保存事务成功后清pending，失败可另存保全。
+Load/Save/Restore/Backup/Export支持两种模式；首次读取书架不得创建缓存或解出所有图片。
+ReadChat/SaveChat封装聊天存储；SaveDocumentCopy携带当前未保存稿件、图、聊天、历史。
+旧目录格式保持原行为；导出不能覆盖.mozhou本体、journal/wal/shm或图片缓存内部路径。
+
+任务3：桌面与书架（根代理）
+新建/打开/另存改为文档文件对话框，旧目录仍可通过主文件或旧目录入口打开。
+ProjectFolder对.mozhou保留完整文件路径；书架和设置使用Location，不把缓存误当作小说。
+图库使用store.Images，聊天使用ReadChat/SaveChat；成功切换、返回书架和关闭后清理缓存。
+新增桌面测试：文件路径保留、文件打开、原地自动保存、图片和聊天单文件搬运、另存未保存内容、冲突保护。
+
+任务4：验证与交付
+串行运行受影响Core/Desktop/Bookshelf全部检查及既有Graph/Codex回归。
+独立测试文档实际启动检查新建/打开入口和图库；测试文件不加入用户书架。
+版本0.6.0，独立输出目录、使用说明和干净ZIP；检查公开文件不含小说文档/图片/聊天/账号。
+同步原GitHub仓库，保持旧版本可下载。现有真实小说转换时只生成副本并保留原稿。

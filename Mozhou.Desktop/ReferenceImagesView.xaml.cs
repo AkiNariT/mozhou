@@ -10,7 +10,7 @@ namespace Mozhou.Desktop;
 
 public partial class ReferenceImagesView : UserControl
 {
-    private string? _projectFolder;
+    private ProjectImageStore? _storage;
     private IReadOnlyList<EntryImage>? _entryImages;
     private List<ImageCard> _cards = [];
 
@@ -25,20 +25,20 @@ public partial class ReferenceImagesView : UserControl
         Unloaded += (_, _) => ReleaseThumbnails();
     }
 
-    public void SetImages(string? projectFolder, IReadOnlyList<EntryImage> images)
+    public void SetImages(ProjectImageStore? storage, IReadOnlyList<EntryImage> images)
     {
         ArgumentNullException.ThrowIfNull(images);
-        bool sameEntry = string.Equals(_projectFolder, projectFolder, StringComparison.OrdinalIgnoreCase)
+        bool sameEntry = ReferenceEquals(_storage, storage)
             && ReferenceEquals(_entryImages, images);
         bool wasEmpty = _cards.Count == 0;
         ReleaseThumbnails();
         ImageList.ItemsSource = null;
-        _projectFolder = projectFolder;
+        _storage = storage;
         _entryImages = images;
         _cards = images.Select(image => new ImageCard(image)).ToList();
         ImageList.ItemsSource = _cards;
         HeaderText.Text = $"参考图 · {_cards.Count}";
-        AddButton.IsEnabled = !string.IsNullOrWhiteSpace(projectFolder);
+        AddButton.IsEnabled = storage != null;
         ImagesExpander.IsEnabled = _cards.Count > 0;
         if (_cards.Count == 0) ImagesExpander.IsExpanded = false;
         else if (!sameEntry || wasEmpty) ImagesExpander.IsExpanded = true;
@@ -65,8 +65,8 @@ public partial class ReferenceImagesView : UserControl
             card.Attempted = true;
             try
             {
-                if (string.IsNullOrWhiteSpace(_projectFolder)) throw new InvalidDataException("尚未打开小说文件夹。");
-                string path = new ProjectImageStore(_projectFolder).ResolvePath(card.Image);
+                if (_storage == null) throw new InvalidDataException("尚未打开小说。");
+                string path = _storage.ResolvePath(card.Image);
                 card.SetResult(LocalImageLoader.Load(path), "");
             }
             catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or NotSupportedException or SecurityException)

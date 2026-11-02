@@ -27,3 +27,7 @@ mozhou-settings.json*
 .env
 .env.*
 auth.json
+*.mozhou
+*.mozhou-journal
+*.mozhou-wal
+*.mozhou-shm

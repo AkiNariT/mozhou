@@ -10,25 +10,45 @@ public partial class MainWindow
     private void SaveCopyClick(object sender, RoutedEventArgs e)
     {
         if (_store == null || !CanSwitchProjects()) return;
-        var dialog = new OpenFolderDialog { Title = "选择保存副本的位置（将创建新文件夹）", InitialDirectory = _store.Folder };
+        var dialog = new SaveFileDialog
+        {
+            Title = "另存为完整墨舟文档（请选择新文件名）", Filter = "墨舟小说文档|*.mozhou",
+            DefaultExt = ".mozhou", AddExtension = true, InitialDirectory = ProjectSaveDirectory(),
+            FileName = SafeFilename(_project.Title) + (_store.IsDocument ? "-副本" : "") + ".mozhou", OverwritePrompt = false
+        };
         if (dialog.ShowDialog(this) != true) return;
-        var path = Path.Combine(dialog.FolderName, SafeFilename(_project.Title) + "-副本-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N")[..4]);
+        var path = dialog.FileName;
+        var legacyLocation = _store.IsDocument ? null : _store.Location;
         try
         {
+            ValidateNewDocumentPath(path);
             SaveProjectCopy(path);
             OpenFolder(path);
-            MessageBox.Show(this, "完整副本已保存，并已切换到副本继续编辑。\n原小说文件保留在原位置。\n\n" + path, "副本已保存");
+            if (legacyLocation != null)
+            {
+                try { _bookshelf.Forget(legacyLocation); }
+                catch (Exception ex) { _shelfNotice = "新文档已保存，旧书架入口可手动移除：" + ex.Message; }
+            }
+            MessageBox.Show(this, "完整小说文档已保存，已切换到新文档继续编辑。\n正文、设定、关系网和图片均包含在内，原稿保留。\n\n" + path, "文档已保存");
         }
         catch (Exception ex) { ShowError("保存副本失败", ex); }
     }
     private void SaveProjectCopy(string path)
     {
         if (_store == null) throw new InvalidOperationException("请先打开小说。");
-        var images = new ProjectImageStore(_store.Folder);
+        if (path.EndsWith(".mozhou", StringComparison.OrdinalIgnoreCase) && !Directory.Exists(path))
+        {
+            if (File.Exists(path)) throw new IOException("该文档已存在，请选择新的文件名，原文档不会被覆盖。");
+            var chat = _chatDamaged ? null : System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(_chat);
+            _store.SaveDocumentCopy(path, _project, chat);
+            return;
+        }
+        var images = _store.Images;
         images.ValidateReferences(_project);
         images.CopyTo(path);
         var copy = System.Text.Json.JsonSerializer.Deserialize<NovelProject>(System.Text.Json.JsonSerializer.Serialize(_project))!;
-        new ProjectStore(path).Save(copy);
+        using var copyStore = new ProjectStore(path);
+        copyStore.Save(copy);
         if (!_chatDamaged) File.WriteAllText(Path.Combine(path, "assistant-chat.json"), System.Text.Json.JsonSerializer.Serialize(_chat));
     }
 
@@ -36,20 +56,41 @@ public partial class MainWindow
     {
         if (!CanSwitchProjects() || !Flush()) return;
         var title = Dialogs.Input(this, "新建小说", "小说名称", "我的新小说"); if (title == null) return;
-        var dialog = new OpenFolderDialog { Title = "选择存放位置：将在其中创建小说文件夹", InitialDirectory = _store?.Folder ?? SettingsStore.DataRoot };
-        if (dialog.ShowDialog(this) != true) return;
         string clean = SafeFilename(title).Trim().TrimEnd('.'); if (string.IsNullOrWhiteSpace(clean)) clean = "新小说";
-        var folder = Path.Combine(dialog.FolderName, clean);
-        if (Directory.Exists(folder)) folder += "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
-        try { Directory.CreateDirectory(folder); new ProjectStore(folder).Save(ProjectContent.CreateEmpty(title)); OpenFolder(folder); }
+        var dialog = new SaveFileDialog
+        {
+            Title = "保存新小说文档", Filter = "墨舟小说文档|*.mozhou", DefaultExt = ".mozhou", AddExtension = true,
+            FileName = clean + ".mozhou", InitialDirectory = ProjectSaveDirectory(), OverwritePrompt = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+        try
+        {
+            ValidateNewDocumentPath(dialog.FileName);
+            using var store = new ProjectStore(dialog.FileName);
+            store.Save(ProjectContent.CreateEmpty(title));
+            OpenFolder(dialog.FileName);
+        }
         catch (Exception ex) { ShowError("创建小说失败", ex); }
     }
     private void OpenProjectClick(object sender, RoutedEventArgs e)
     {
         if (!CanSwitchProjects()) return;
         if (!Flush() && MessageBox.Show(this, "当前内容尚未保存。建议先在项目菜单中另存当前小说副本，保留全部修改。仍然重新打开或切换项目？", "尚未保存", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
-        var dialog = new OpenFolderDialog { Title = "选择包含 project.mozhou.json 的小说文件夹", InitialDirectory = _store?.Folder ?? SettingsStore.DataRoot };
-        if (dialog.ShowDialog(this) == true) { try { OpenFolder(dialog.FolderName); } catch (Exception ex) { ShowError("打开小说失败", ex); } }
+        var dialog = new OpenFileDialog
+        {
+            Title = "打开 / 导入小说", Filter = "墨舟小说文档|*.mozhou|旧版小说主文件|project.mozhou.json",
+            CheckFileExists = true, InitialDirectory = ProjectSaveDirectory()
+        };
+        if (dialog.ShowDialog(this) == true) { try { OpenFolder(ProjectFolder(dialog.FileName)); } catch (Exception ex) { ShowError("打开小说失败", ex); } }
+    }
+    private string ProjectSaveDirectory() => _store == null ? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)
+        : Path.GetDirectoryName(_store.Location) ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    private static void ValidateNewDocumentPath(string path)
+    {
+        if (!string.Equals(Path.GetExtension(path), ".mozhou", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("请使用 .mozhou 扩展名保存完整小说文档。");
+        if (File.Exists(path) || Directory.Exists(path))
+            throw new IOException("该位置已存在文件或文件夹，请选择新的文件名，原稿不会被覆盖。");
     }
     private void ProjectMenuClick(object sender, RoutedEventArgs e) { if (sender is Button b) { b.ContextMenu.PlacementTarget = b; b.ContextMenu.IsOpen = true; } }
     private void RenameProjectClick(object sender, RoutedEventArgs e)
@@ -60,7 +101,14 @@ public partial class MainWindow
         _project.Title = title; if (description != null) _project.Description = description;
         ProjectTitle.Text = title; Title = title + " · 墨舟"; ProjectDescription.Text = _project.Description; MarkDirty(); Flush();
     }
-    private void RevealProjectClick(object sender, RoutedEventArgs e) { if (_store != null) Process.Start(new ProcessStartInfo("explorer.exe") { ArgumentList = { _store.Folder }, UseShellExecute = true }); }
+    private void RevealProjectClick(object sender, RoutedEventArgs e)
+    {
+        if (_store == null) return;
+        var explorer = new ProcessStartInfo("explorer.exe") { UseShellExecute = true };
+        if (_store.IsDocument) explorer.ArgumentList.Add("/select,");
+        explorer.ArgumentList.Add(_store.Location);
+        Process.Start(explorer);
+    }
     private void ExportMarkdownClick(object sender, RoutedEventArgs e) => Export(false);
     private void ExportTextClick(object sender, RoutedEventArgs e) => Export(true);
     private void Export(bool plain)
@@ -92,5 +140,25 @@ public partial class MainWindow
         catch (Exception ex) { ShowError("恢复失败", ex); }
     }
     private static string SafeFilename(string s) => string.Concat(s.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-    private void HelpClick(object sender, RoutedEventArgs e) => Dialogs.Text(this, "使用墨舟", "墨舟 · 本地小说工作台\n\n1. 新建小说或打开已有小说文件夹。每本小说的数据存放在 project.mozhou.json 中，可以随整个文件夹移动。\n\n2. 在正文、人设、大纲、世界观或灵感中点击 ＋ 创建条目。编辑后 0.75 秒自动保存，Ctrl+S 立即保存。分卷、分类和标签用于整理资料。\n\n3. 人物关系页支持新增有向关系。拖动人物调整位置，双击打开人设，点击关系标签修改说明。\n\n4. 右侧点击连接 Codex。使用本机官方 Codex 的 ChatGPT 登录，共用现有额度。连接不生成内容，发送消息才开始调用。无需填写 API Key。\n\n5. 发送前可查看上下文。当前条目和勾选的设定会通过 Codex 发往云端；默认不会附带其他章节全文。回答可复制、追加到发起请求时的条目，或保存为灵感笔记。\n\n6. 项目菜单可导出正文 Markdown/TXT、创建完整 ZIP 备份、恢复上一次保存。自动备份保留最近 30 个版本；重要阶段建议另做 ZIP 备份。保存冲突时，用「另存当前小说副本」保留全部未保存内容。\n\n7. Codex 未登录时，请先在官方 Codex 应用完成 ChatGPT 登录，然后重新连接。路径检测失败时可点右上角齿轮选择 codex.exe。\n\n参考图：条目下方点击「添加图片」可选多张 PNG/JPEG/BMP/GIF（首帧），点击缩略图放大与缩放。图片会复制到小说 assets/images 文件夹，随 ZIP 备份和另存副本保存。移除只解除关联，原图与历史图片保留。单图最多 25 MiB、4000 万像素。首次添加图片后的小说需用 0.5.0 或更新兼容版本打开；参考图不自动发送给 Codex，也不嵌入正文导出。\n\n正文使用纯文本编辑，Markdown 标记可直接输入。默认启动先进入小说书架。书架支持搜索、新建、打开与继续编辑；顶部可返回书架。卡片菜单中的“移出书架”只移除入口，不删除文件。字数按中文字符和英文单词估算。");
+    private void HelpClick(object sender, RoutedEventArgs e) => Dialogs.Text(this, "使用墨舟", """
+        墨舟 · 本地小说工作台
+
+        1. 新建小说时选择保存位置，一本小说对应一个 .mozhou 文档。正文、人设、大纲、世界观、关系网、参考图、聊天和保存历史都在文档内。打开 / 导入选择该文件即可继续编辑。
+
+        2. 旧版小说可选择 project.mozhou.json 打开，再用「项目 → 另存为墨舟文档…」转换。原文件夹保留，新文档保存成功后会直接切换过去。
+
+        3. 在正文、人设、大纲、世界观或灵感中点击 ＋ 创建条目。编辑后 0.75 秒自动保存，Ctrl+S 立即保存。分卷、分类和标签用于整理资料。
+
+        4. 人物关系页支持新增有向关系。拖动人物调整位置，双击打开人设，点击关系标签修改说明。
+
+        5. 条目下方可添加多张 PNG/JPEG/BMP/GIF（首帧），点击缩略图放大。原图片保留，文档内另存一份；移除只解除关联，历史用图仍保留。单图最多 25 MiB、4000 万像素。参考图不自动发送给 Codex，也不嵌入正文导出。
+
+        6. 项目菜单可导出正文 Markdown/TXT、创建完整 ZIP 备份、恢复上一次保存。文档内保留最近 30 个保存历史；重要阶段建议另存独立副本。保存冲突时，用「另存为墨舟文档…」保留全部未保存内容。ZIP 解压后可打开其中的 project.mozhou.json。
+
+        7. 移动或分享前，等待“已保存到本地”并关闭小说，再复制 .mozhou 文件即可。保存过程中可能暂时出现事务文件，请勿在此时移动。通过应用打开文档；如需双击打开，可在 Windows「打开方式」中选择墨舟。本版本不自动修改系统文件关联。
+
+        8. 右侧可连接本机官方 Codex，使用 ChatGPT 登录。发送前可查看上下文，当前条目和勾选的设定会发往云端；默认不附带其他章节全文。回答可复制、追加到发起请求时的条目，或保存为灵感。路径检测失败时可点齿轮选择 codex.exe。
+
+        正文使用纯文本编辑，可直接输入 Markdown。默认启动进入书架；“移出书架”只移除入口，不删除文档。字数按中文字符和英文单词估算。.mozhou 独立文档需要墨舟 0.6.0 或更新兼容版本打开。
+        """);
 }

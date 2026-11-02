@@ -7,18 +7,147 @@ namespace Mozhou.Core;
 
 public sealed class ConflictException(string message) : IOException(message);
 
-public sealed class ProjectStore(string folder)
+public sealed class ProjectStore : IDisposable
 {
+    private const string ProjectName = "project.mozhou.json", PreviousName = "project.mozhou.json.bak", ChatName = "assistant-chat.json";
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true, Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private byte[]? _baseline;
     private bool _hasBaseline;
     private NovelProject? _project;
-    public string Folder { get; } = Path.GetFullPath(folder);
-    public string FilePath => Path.Combine(Folder, "project.mozhou.json");
+    private byte[]? _chatBaseline;
+    private bool _disposed;
+    public string Location { get; }
+    public bool IsDocument { get; }
+    public string Folder { get; }
+    public string FilePath => IsDocument ? Location : Path.Combine(Folder, "project.mozhou.json");
+    public ProjectImageStore Images { get; }
+
+    public ProjectStore(string location)
+    {
+        Location = Path.TrimEndingDirectorySeparator(Path.GetFullPath(location));
+        IsDocument = !Directory.Exists(Location) && (File.Exists(Location) || string.Equals(Path.GetExtension(Location), ".mozhou", StringComparison.OrdinalIgnoreCase));
+        Folder = IsDocument ? Path.Combine(ProjectImageStore.CacheRoot, Guid.NewGuid().ToString("N")) : Location;
+        Images = IsDocument ? new ProjectImageStore(Folder, Location) : new ProjectImageStore(Folder);
+    }
+
+    public byte[]? ReadChat()
+    {
+        ThrowIfDisposed();
+        var path = Path.Combine(Folder, ChatName);
+        var bytes = IsDocument ? new SingleFileDocument(Location).ReadFile(ChatName) : File.Exists(path) ? File.ReadAllBytes(path) : null;
+        _chatBaseline = bytes?.ToArray(); return bytes;
+    }
+
+    public void SaveChat(byte[] bytes)
+    {
+        ThrowIfDisposed(); ArgumentNullException.ThrowIfNull(bytes);
+        if (IsDocument)
+            new SingleFileDocument(Location).WriteFiles(new Dictionary<string, byte[]?> { [ChatName] = bytes }, expectedChat: _chatBaseline, checkChat: true);
+        else
+        {
+            Directory.CreateDirectory(Folder);
+            var path = Path.Combine(Folder, ChatName); var temporary = WriteTemporary(path, bytes);
+            try { File.Move(temporary, path, true); }
+            finally { if (File.Exists(temporary)) File.Delete(temporary); }
+        }
+        _chatBaseline = bytes.ToArray();
+    }
+
+    public void SaveDocumentCopy(string destination, NovelProject current, byte[]? chatOverride = null)
+    {
+        ThrowIfDisposed(); ArgumentNullException.ThrowIfNull(current);
+        if (IsDocument && _hasBaseline && !File.Exists(Location))
+            throw new FileNotFoundException("源文档已移动或删除，无法生成完整副本。可先导出正文保留当前内容。", Location);
+        var target = ValidateDestination(destination);
+        if (!string.Equals(Path.GetExtension(target), ".mozhou", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("单文件小说副本须使用 .mozhou 扩展名。");
+        if (File.Exists(target) || Directory.Exists(target)) throw new IOException("目标已存在，请选择新的小说文件名。");
+        var copy = JsonSerializer.Deserialize<NovelProject>(JsonSerializer.SerializeToUtf8Bytes(current, JsonOptions), JsonOptions)!;
+        PrepareProject(copy); Images.ValidateReferences(copy);
+        copy.UpdatedAt = DateTimeOffset.Now;
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(copy, JsonOptions);
+        var pending = Images.PendingFiles();
+        if (!IsDocument)
+        {
+            using var gate = Directory.Exists(Folder) ? AcquireWriteLock() : null;
+            SingleFileDocument.CreateNew(target, LegacyCopyFiles(bytes, chatOverride));
+            return;
+        }
+        if (!File.Exists(Location))
+        {
+            var files = pending.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+            files[ProjectName] = bytes;
+            if (chatOverride != null) files[ChatName] = chatOverride;
+            SingleFileDocument.CreateNew(target, files); return;
+        }
+
+        // Apply draft overrides to a private complete snapshot before publishing the new document.
+        var staging = target + "." + Guid.NewGuid().ToString("N") + ".tmp.mozhou";
+        try
+        {
+            new SingleFileDocument(Location).CopyTo(staging);
+            var staged = new SingleFileDocument(staging);
+            var changes = pending.ToDictionary(pair => pair.Key, pair => (byte[]?)pair.Value, StringComparer.OrdinalIgnoreCase);
+            changes[ProjectName] = bytes;
+            if (chatOverride != null) changes[ChatName] = chatOverride;
+            staged.WriteFiles(changes);
+            // Check the final staged snapshot, including pending images, before it becomes visible.
+            using (var verify = new ProjectStore(staging)) verify.Images.ValidateReferences(verify.Load());
+            File.Move(staging, target, false);
+        }
+        finally { DeletePrivateDocument(staging); }
+    }
+
+    private IEnumerable<KeyValuePair<string, byte[]>> LegacyCopyFiles(byte[] current, byte[]? chatOverride)
+    {
+        yield return new(ProjectName, current);
+        var previous = Path.Combine(Folder, PreviousName);
+        if (File.Exists(previous))
+        {
+            if (IsLink(previous)) throw new IOException("上一版本不能是符号链接。");
+            yield return new(PreviousName, File.ReadAllBytes(previous));
+        }
+        var backups = Path.Combine(Folder, "backups");
+        if (Directory.Exists(backups))
+        {
+            if (IsLink(backups)) throw new IOException("备份目录不能是符号链接。");
+            foreach (var path in Directory.GetFiles(backups, "*.json").OrderBy(path => path, StringComparer.Ordinal))
+            {
+                if (IsLink(path)) throw new IOException("历史备份不能是符号链接。");
+                yield return new("backups/" + Path.GetFileName(path), File.ReadAllBytes(path));
+            }
+        }
+        var chat = Path.Combine(Folder, ChatName);
+        if (chatOverride != null) yield return new(ChatName, chatOverride);
+        else if (File.Exists(chat))
+        {
+            if (IsLink(chat)) throw new IOException("对话记录不能是符号链接。");
+            yield return new(ChatName, File.ReadAllBytes(chat));
+        }
+        foreach (var image in Images.EnumerateFiles()) yield return new("assets/images/" + Path.GetFileName(image), File.ReadAllBytes(image));
+    }
+
+    private static void DeletePrivateDocument(string staging)
+    {
+        foreach (var suffix in new[] { "", "-journal", "-wal", "-shm" })
+            if (File.Exists(staging + suffix)) File.Delete(staging + suffix);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        if (IsDocument) Images.DisposeDocumentCache();
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed) throw new ObjectDisposedException(nameof(ProjectStore));
+    }
 
     public NovelProject Load()
     {
-        var bytes = File.ReadAllBytes(FilePath);
+        ThrowIfDisposed();
+        var bytes = ReadCurrent() ?? throw new FileNotFoundException("小说正文不存在。", FilePath);
         var project = Parse(bytes);
         _baseline = bytes; _hasBaseline = true; _project = project;
         return project;
@@ -26,10 +155,8 @@ public sealed class ProjectStore(string folder)
 
     public void Save(NovelProject project)
     {
-        ArgumentNullException.ThrowIfNull(project);
-        // Old executables reject version 2 instead of dropping image metadata on their next save.
-        if (project.FormatVersion == 1 && project.Entries?.Any(entry => entry?.Images?.Count > 0) == true) project.FormatVersion = 2;
-        Validate(project);
+        ThrowIfDisposed(); PrepareProject(project);
+        if (IsDocument) { SaveDocument(project); return; }
         Directory.CreateDirectory(Folder);
         using var gate = AcquireWriteLock();
         var previous = ReadCurrent();
@@ -55,6 +182,8 @@ public sealed class ProjectStore(string folder)
 
     public NovelProject RestorePrevious()
     {
+        ThrowIfDisposed();
+        if (IsDocument) return RestoreDocumentPrevious();
         Directory.CreateDirectory(Folder);
         using var gate = AcquireWriteLock();
         var backup = File.ReadAllBytes(FilePath + ".bak");
@@ -78,8 +207,94 @@ public sealed class ProjectStore(string folder)
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
+    private static void PrepareProject(NovelProject project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (project.FormatVersion == 1 && project.Entries?.Any(entry => entry?.Images?.Count > 0) == true)
+            project.FormatVersion = 2;
+        Validate(project);
+    }
+
+    private void SaveDocument(NovelProject project)
+    {
+        var previous = ReadCurrent();
+        EnsureUnchanged(previous);
+        if (!_hasBaseline && File.Exists(Location))
+            throw new ConflictException("现有小说文档尚未成功读取，未覆盖原文件。");
+        project.UpdatedAt = DateTimeOffset.Now;
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(project, JsonOptions);
+        var pending = Images.PendingFiles();
+        if (!_hasBaseline)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(Location)!);
+            var files = pending.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+            files[ProjectName] = bytes;
+            SingleFileDocument.CreateNew(Location, files);
+        }
+        else
+        {
+            var document = new SingleFileDocument(Location);
+            var changes = pending.ToDictionary(pair => pair.Key, pair => (byte[]?)pair.Value, StringComparer.OrdinalIgnoreCase);
+            changes[ProjectName] = bytes;
+            if (previous != null)
+            {
+                changes[PreviousName] = previous;
+                AddDocumentHistory(document, changes, previous);
+            }
+            document.WriteFiles(changes, expectedProject: _baseline, checkProject: true);
+        }
+        // Retain pending imports on every failure so a complete rescue copy remains possible.
+        _baseline = bytes; _hasBaseline = true; _project = project;
+        Images.AcceptPending(pending);
+    }
+
+    private NovelProject RestoreDocumentPrevious()
+    {
+        var document = new SingleFileDocument(Location);
+        var current = document.ReadFile(ProjectName);
+        var backup = document.ReadFile(PreviousName) ?? throw new FileNotFoundException("小说文档没有上一版本。", Location);
+        var restored = Parse(backup);
+        var changes = new Dictionary<string, byte[]?> { [ProjectName] = backup };
+        if (current != null) AddDocumentHistory(document, changes, current);
+        document.WriteFiles(changes, expectedProject: current, checkProject: true);
+        _baseline = backup; _hasBaseline = true; _project = restored;
+        return restored;
+    }
+
+    private static void AddDocumentHistory(SingleFileDocument document, IDictionary<string, byte[]?> changes, byte[] previous)
+    {
+        var name = $"backups/project-{DateTime.UtcNow:yyyyMMdd-HHmmss-fffffff}-{Guid.NewGuid():N}.json";
+        changes[name] = previous;
+        foreach (var old in document.ListFiles("backups/").Append(name).OrderByDescending(value => value, StringComparer.Ordinal).Skip(30))
+            changes[old] = null;
+    }
+
     public void CreateBackup(string destinationZip)
     {
+        ThrowIfDisposed();
+        if (IsDocument)
+        {
+            var target = ValidateDestination(destinationZip);
+            if (File.Exists(target) || Directory.Exists(target)) throw new IOException("备份目标已存在，请选择新的文件名。");
+            var temporaryZip = target + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            try
+            {
+                new SingleFileDocument(Location).ExportZip(temporaryZip);
+                // Validate the exact exported snapshot, even if another window saved while it was made.
+                using (var zip = ZipFile.OpenRead(temporaryZip))
+                {
+                    var main = zip.GetEntry(ProjectName) ?? throw new FileNotFoundException("小说正文不存在。", Location);
+                    using var input = main.Open(); using var memory = new MemoryStream(); input.CopyTo(memory);
+                    var savedProject = Parse(memory.ToArray());
+                    var files = zip.Entries.Select(entry => entry.FullName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    foreach (var image in savedProject.Entries.SelectMany(entry => entry.Images))
+                        if (!files.Contains("assets/images/" + image.FileName)) throw new FileNotFoundException("小说文档缺少参考图片：" + image.FileName);
+                }
+                File.Move(temporaryZip, target, false);
+            }
+            finally { if (File.Exists(temporaryZip)) File.Delete(temporaryZip); }
+            return;
+        }
         using var gate = AcquireWriteLock();
         var current = File.ReadAllBytes(FilePath);
         var project = Parse(current);
@@ -117,6 +332,7 @@ public sealed class ProjectStore(string folder)
 
     private void Export(string destination, bool markdown)
     {
+        ThrowIfDisposed();
         var project = _project ?? Load();
         var text = new StringBuilder().AppendLine(markdown ? "# " + project.Title : project.Title).AppendLine();
         string? lastGroup = null;
@@ -136,6 +352,10 @@ public sealed class ProjectStore(string folder)
     private string ValidateDestination(string destination)
     {
         var full = Path.GetFullPath(destination);
+        if (IsDocument && (string.Equals(full, Location, StringComparison.OrdinalIgnoreCase) ||
+            new[] { "-journal", "-wal", "-shm" }.Any(suffix => string.Equals(full, Location + suffix, StringComparison.OrdinalIgnoreCase)) ||
+            string.Equals(full, Folder, StringComparison.OrdinalIgnoreCase) || full.StartsWith(Folder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+            throw new IOException("导出目标不能覆盖小说文档、数据库日志或图片缓存。");
         var backupRoot = Path.Combine(Folder, "backups") + Path.DirectorySeparatorChar;
         var assetsRoot = Path.Combine(Folder, "assets");
         if (string.Equals(full, FilePath, StringComparison.OrdinalIgnoreCase) ||
@@ -156,7 +376,7 @@ public sealed class ProjectStore(string folder)
         catch (IOException ex) { throw new ConflictException("另一个墨舟窗口正在保存，请稍后重试。" + ex.Message); }
     }
 
-    private byte[]? ReadCurrent() => File.Exists(FilePath) ? File.ReadAllBytes(FilePath) : null;
+    private byte[]? ReadCurrent() => !File.Exists(FilePath) ? null : IsDocument ? new SingleFileDocument(Location).ReadFile(ProjectName) : File.ReadAllBytes(FilePath);
     private static bool Same(byte[]? left, byte[]? right) => left == null ? right == null : right != null && left.AsSpan().SequenceEqual(right);
     private void EnsureUnchanged(byte[]? current)
     {

@@ -3,6 +3,42 @@ using Mozhou.Core;
 
 var tests = new (string Name, Action<string> Run)[]
 {
+    ("Standalone documents and same-ID copies retain independent bookshelf paths", dir =>
+    {
+        var document = Path.Combine(dir, "小说.mozhou"); var copy = Path.Combine(dir, "副本.mozhou");
+        using var store = new ProjectStore(document);
+        var project = new NovelProject { Title = "一个完整文档", Entries = [new NovelEntry { Kind = "chapter", Content = "中文 hello world 𠀀" }] };
+        store.Save(project); store.SaveDocumentCopy(copy, project);
+        var shelf = Shelf(dir); shelf.Seed([document, copy, document.ToUpperInvariant()]);
+        var books = shelf.Refresh(); Equal(2, books.Count);
+        True(books.All(book => book.IsAvailable && book.WordCount == 5), "document summary lost");
+        True(books.Select(book => book.Folder).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals([document, copy]), "document paths collapsed to parent directory");
+        True(!Directory.Exists(store.Folder), "shelf scanning extracted document assets");
+        var before = File.ReadAllBytes(document); shelf.Forget(document);
+        True(before.SequenceEqual(File.ReadAllBytes(document)), "forget deleted or changed document"); Equal(copy, shelf.Read().Single().Folder);
+    }),
+    ("Refresh reads updated document metadata without changing the file", dir =>
+    {
+        var document = Path.Combine(dir, "小说.mozhou"); using var store = new ProjectStore(document);
+        var project = new NovelProject { Title = "旧标题" }; store.Save(project);
+        var shelf = Shelf(dir); shelf.Remember(document, project);
+        project.Title = "新标题"; project.Entries.Add(new NovelEntry { Kind = "chapter", Content = "中文 hello world 𠀀" }); store.Save(project);
+        var before = File.ReadAllBytes(document); var book = shelf.Refresh().Single();
+        Equal("新标题", book.Title); Equal(5, book.WordCount); Equal(1, book.ChapterCount);
+        True(before.SequenceEqual(File.ReadAllBytes(document)), "refresh changed standalone document");
+        True(!Directory.Exists(store.Folder), "metadata-only refresh created image cache");
+    }),
+    ("Missing or invalid standalone documents stay findable without recreating files", dir =>
+    {
+        var document = Path.Combine(dir, "小说.mozhou"); using var store = new ProjectStore(document);
+        var project = new NovelProject { Title = "应保留标题" }; store.Save(project);
+        var shelf = Shelf(dir); shelf.Remember(document, project); var bytes = File.ReadAllBytes(document); File.Delete(document);
+        var missing = shelf.Refresh().Single(); Equal("应保留标题", missing.Title); True(!missing.IsAvailable, "missing document available");
+        True(!File.Exists(document) && !Directory.Exists(document), "refresh recreated missing document");
+        File.WriteAllText(document, "invalid sqlite"); var invalid = shelf.Refresh().Single(); True(!invalid.IsAvailable, "invalid document available");
+        Equal("invalid sqlite", File.ReadAllText(document));
+        File.WriteAllBytes(document, bytes); True(shelf.Refresh().Single().IsAvailable, "restored document still unavailable");
+    }),
     ("Different books and copies with the same project ID survive restart", dir =>
     {
         var a = SaveBook(dir, "a", "海上的约定");

@@ -13,7 +13,7 @@ public partial class MainWindow : Window
     private ProjectStore? _store;
     private NovelEntry? _selected;
     private string _section = "chapter";
-    private bool _loading, _refreshing, _dirty, _focus;
+    private bool _loading, _refreshing, _dirty, _focus, _closeRequested;
     private readonly DispatcherTimer _saveTimer = new() { Interval = TimeSpan.FromMilliseconds(750) };
     private readonly UserSettings _settings;
     private readonly ManuscriptStatistics _statistics = new();
@@ -38,20 +38,26 @@ public partial class MainWindow : Window
         var store = new ProjectStore(folder);
         NovelProject project;
         try { project = store.Load(); }
-        catch (Exception ex) when ((ex is System.Text.Json.JsonException || ex is InvalidDataException || ex is FileNotFoundException) && File.Exists(store.FilePath + ".bak"))
+        catch (Exception ex) when ((ex is System.Text.Json.JsonException || ex is InvalidDataException || ex is FileNotFoundException) && HasPreviousVersion(store))
         {
-            if (MessageBox.Show(this, "小说文件无法读取，但发现了上一次保存的备份。\n是否恢复该备份？恢复前的文件会保留在 backups 文件夹中。\n\n原因：" + ex.Message, "恢复小说备份", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) throw;
+            if (MessageBox.Show(this, "小说内容无法读取，但发现了上一次保存的备份。\n是否恢复该备份？恢复前的内容会保留在保存历史中。\n\n原因：" + ex.Message, "恢复小说备份", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) throw;
             project = store.RestorePrevious();
         }
         CloseReferencePreview();
+        _store?.Dispose();
         _store = store; _project = project; _selected = null; _dirty = false; _section = "chapter";
-        _settings.LastProjectPath = store.Folder; SavePreferences();
+        _settings.LastProjectPath = store.Location; SavePreferences();
         ProjectTitle.Text = project.Title; ProjectDescription.Text = string.IsNullOrWhiteSpace(project.Description) ? "属于你的故事，在这里展开。" : project.Description;
-        PathStatus.Text = store.Folder; PathStatus.ToolTip = store.Folder;
+        PathStatus.Text = store.Location; PathStatus.ToolTip = store.Location;
         _loading = true; SearchBox.Text = ""; _loading = false;
         RefreshNavigation(); RefreshList(); UpdateCounts(); SetSaveStatus("● 已保存到本地", false);
         PromptBox.Clear(); ClearChatForProject();
         RememberCurrentProject(); ShowEditor();
+    }
+    private static bool HasPreviousVersion(ProjectStore store)
+    {
+        try { return store.IsDocument ? new SingleFileDocument(store.Location).ReadFile("project.mozhou.json.bak") != null : File.Exists(store.FilePath + ".bak"); }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or NotSupportedException) { return false; }
     }
     private void SavePreferences()
     {
@@ -118,15 +124,18 @@ public partial class MainWindow : Window
     private bool Flush()
     {
         _saveTimer.Stop();
-        if (!_dirty || _store == null) return true;
-        try
+        if (_store == null) return true;
+        if (_dirty) try
         {
             _project.UpdatedAt = DateTimeOffset.Now; _store.Save(_project); _dirty = false;
             SetSaveStatus($"● 已保存到本地 · {DateTime.Now:HH:mm:ss}", false);
-            EntryList.Items.Refresh(); UpdateCounts(); return true;
+            EntryList.Items.Refresh(); UpdateCounts();
         }
         catch (ConflictException ex) { SetSaveStatus("保存暂停：文件已被修改。请在「项目」中另存当前小说副本，再处理原文件。", true); SaveStatus.ToolTip = ex.Message; return false; }
         catch (Exception ex) { SetSaveStatus("保存失败：" + ex.Message, true); return false; }
+        if (_chatSaveFailed) PersistChat();
+        if (_chatSaveFailed) { SetSaveStatus("对话尚未保存，请在「项目」中另存为墨舟文档，保留当前聊天。", true); return false; }
+        return true;
     }
     private void SetSaveStatus(string text, bool error) { SaveStatus.Text = text; if (!error) SaveStatus.ToolTip = null; SaveStatus.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString(error ? "#B24832" : "#6B8271")); }
     private void UpdateCounts()
@@ -173,8 +182,14 @@ public partial class MainWindow : Window
     private void ShowError(string title, Exception ex) { SetSaveStatus(title + "：" + ex.Message, true); MessageBox.Show(this, ex.Message, title, MessageBoxButton.OK, MessageBoxImage.Warning); }
     private void WindowClosing(object? sender, CancelEventArgs e)
     {
+        if (_generating)
+        {
+            e.Cancel = true; _closeRequested = true; _generationCancellation?.Cancel();
+            SetSaveStatus("正在停止生成并保存已收到的回答，完成后关闭…", false); return;
+        }
         if (!Flush() && MessageBox.Show(this, "保存尚未成功。关闭将丢失窗口内未保存的修改。仍然关闭？", "尚未保存", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) { e.Cancel = true; return; }
         RememberCurrentProject();
+        ClearReferenceImages(); _store?.Dispose(); _store = null;
         _saveTimer.Stop(); _generationCancellation?.Cancel(); if (_codex != null) _ = _codex.DisposeAsync();
     }
 }

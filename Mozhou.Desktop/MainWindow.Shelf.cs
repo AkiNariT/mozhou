@@ -31,7 +31,7 @@ public partial class MainWindow
                 {
                     try { candidates.Add(ProjectFolder(_settings.LastProjectPath)); }
                     catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
-                    { _shelfNotice = "旧设置中的小说路径无效，已跳过。你可以通过“打开小说文件夹”重新添加。"; }
+                    { _shelfNotice = "旧设置中的小说路径无效，已跳过。你可以通过“打开 / 导入小说”重新添加。"; }
                 }
                 var library = Path.Combine(SettingsStore.DataRoot, "Library");
                 if (Directory.Exists(library))
@@ -42,13 +42,13 @@ public partial class MainWindow
                 _bookshelf.Seed(candidates);
             }
         }
-        catch (Exception ex) { _shelfNotice = "书架信息无法读取，原文件已保留。你仍可以打开小说文件夹。\n" + ex.Message; }
+        catch (Exception ex) { _shelfNotice = "书架信息无法读取，原文件已保留。你仍可以打开 / 导入小说。\n" + ex.Message; }
         ShowBookshelf();
     }
 
     private static string ProjectFolder(string path)
     {
-        var folder = !Directory.Exists(path) && (File.Exists(path) || string.Equals(Path.GetFileName(path), "project.mozhou.json", StringComparison.OrdinalIgnoreCase))
+        var folder = !Directory.Exists(path) && string.Equals(Path.GetFileName(path), "project.mozhou.json", StringComparison.OrdinalIgnoreCase)
             ? Path.GetDirectoryName(Path.GetFullPath(path))! : Path.GetFullPath(path);
         return Path.TrimEndingDirectorySeparator(folder);
     }
@@ -68,8 +68,9 @@ public partial class MainWindow
         if (!CanSwitchProjects() || !Flush()) return false;
         RememberCurrentProject();
         _saveTimer.Stop();
-        _store = null; _selected = null; _project = new NovelProject(); _dirty = false;
         ClearReferenceImages();
+        _store?.Dispose();
+        _store = null; _selected = null; _project = new NovelProject(); _dirty = false;
         PromptBox.Clear(); ClearChatForProject();
         ShowBookshelf();
         return true;
@@ -92,7 +93,7 @@ public partial class MainWindow
         catch (Exception ex)
         {
             ShelfPane.SetBooks([]);
-            ShelfPane.SetNotice("书架列表暂时无法读取，小说文件仍保存在原目录。可通过“打开小说文件夹”继续写作。\n" + ex.Message);
+            ShelfPane.SetNotice("书架列表暂时无法读取，小说文件仍保存在原目录。可通过“打开 / 导入小说”继续写作。\n" + ex.Message);
         }
     }
 
@@ -102,7 +103,7 @@ public partial class MainWindow
         try { OpenFolder(ProjectFolder(folder)); return true; }
         catch (Exception ex)
         {
-            _shelfNotice = "这本小说暂时无法打开。若文件夹已移动，可在卡片菜单中选择“重新定位”。\n" + ex.Message;
+            _shelfNotice = "这本小说暂时无法打开。若小说文件已移动，可在卡片菜单中选择“重新定位”。\n" + ex.Message;
             ShelfPane.SetNotice(_shelfNotice);
             if (!_onShelf) SetSaveStatus("打开小说失败：" + ex.Message, true);
             return false;
@@ -121,7 +122,7 @@ public partial class MainWindow
     private void RememberCurrentProject()
     {
         if (_store == null || _dirty) return;
-        try { _bookshelf.Remember(_store.Folder, _project); _shelfNotice = null; }
+        try { _bookshelf.Remember(_store.Location, _project); _shelfNotice = null; }
         catch (Exception ex) { _shelfNotice = "小说可以继续编辑，但书架记录尚未更新：" + ex.Message; }
     }
 
@@ -142,13 +143,21 @@ public partial class MainWindow
     private void LocateShelfBook(string folder)
     {
         if (!CanSwitchProjects() || !Flush()) return;
-        var dialog = new OpenFolderDialog
+        string selected;
+        if (!Directory.Exists(folder) && folder.EndsWith(".mozhou", StringComparison.OrdinalIgnoreCase))
         {
-            Title = "选择这本小说现在所在的文件夹",
-            InitialDirectory = Directory.Exists(folder) ? folder : SettingsStore.DataRoot
-        };
-        if (dialog.ShowDialog(this) != true || !TryOpenShelfBook(dialog.FolderName)) return;
-        if (string.Equals(ProjectFolder(folder), ProjectFolder(dialog.FolderName), StringComparison.OrdinalIgnoreCase)) return;
+            var dialog = new OpenFileDialog { Title = "选择这本小说现在的文档", Filter = "墨舟小说文档|*.mozhou", CheckFileExists = true };
+            if (dialog.ShowDialog(this) != true) return;
+            selected = dialog.FileName;
+        }
+        else
+        {
+            var dialog = new OpenFolderDialog { Title = "选择旧版小说现在所在的文件夹", InitialDirectory = Directory.Exists(folder) ? folder : SettingsStore.DataRoot };
+            if (dialog.ShowDialog(this) != true) return;
+            selected = dialog.FolderName;
+        }
+        if (!TryOpenShelfBook(selected)) return;
+        if (string.Equals(ProjectFolder(folder), ProjectFolder(selected), StringComparison.OrdinalIgnoreCase)) return;
         try { _bookshelf.Forget(folder); }
         catch (Exception ex) { SetSaveStatus("小说已打开，但旧书架记录未移除：" + ex.Message, true); }
     }

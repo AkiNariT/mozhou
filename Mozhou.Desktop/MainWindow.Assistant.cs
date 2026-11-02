@@ -24,7 +24,7 @@ public partial class MainWindow
     private CancellationTokenSource? _generationCancellation;
     private bool _generating, _connecting;
     private readonly List<ChatRecord> _chat = [];
-    private bool _chatDamaged;
+    private bool _chatDamaged, _chatSaveFailed;
 
     private async void ConnectClick(object sender, RoutedEventArgs e)
     {
@@ -150,6 +150,7 @@ public partial class MainWindow
             streamTimer.Stop(); streamTimer.Tick -= flushStream; streamed.Dispose();
             _chat.Add(answer); PersistChat(); _generating = false; _generationCancellation.Dispose(); _generationCancellation = null;
             SendButton.IsEnabled = true; ConnectButton.IsEnabled = true; ModelPicker.IsEnabled = true; CancelButton.Visibility = Visibility.Collapsed; ChatScroll.ScrollToEnd();
+            if (_closeRequested) { _closeRequested = false; Close(); }
         }
     }
     private void CancelClick(object sender, RoutedEventArgs e) { _generationCancellation?.Cancel(); AiStatus.Text = "正在停止…"; }
@@ -230,14 +231,14 @@ public partial class MainWindow
     }
     private void ClearChatForProject()
     {
-        _chat.Clear(); _chatDamaged = false;
+        _chat.Clear(); _chatDamaged = false; _chatSaveFailed = false;
         while (ChatMessages.Children.Count > 1) ChatMessages.Children.RemoveAt(1);
         if (_store == null) return;
-        var path = Path.Combine(_store.Folder, "assistant-chat.json");
-        if (!File.Exists(path)) return;
         try
         {
-            var history = JsonSerializer.Deserialize<List<ChatRecord>>(File.ReadAllText(path));
+            var bytes = _store.ReadChat();
+            if (bytes == null) return;
+            var history = JsonSerializer.Deserialize<List<ChatRecord>>(System.Text.Encoding.UTF8.GetString(bytes).TrimStart('\uFEFF'));
             if (history == null || history.Any(x => x == null || x.Text == null || x.Role is not ("user" or "assistant")))
                 throw new InvalidDataException("对话记录结构无效。");
             _chat.AddRange(history.TakeLast(100));
@@ -251,10 +252,9 @@ public partial class MainWindow
         try
         {
             if (_chat.Count > 100) _chat.RemoveRange(0, _chat.Count - 100);
-            var path = Path.Combine(_store.Folder, "assistant-chat.json"); var temp = path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(_chat, new JsonSerializerOptions { WriteIndented = true }));
-            File.Move(temp, path, true);
+            _store.SaveChat(JsonSerializer.SerializeToUtf8Bytes(_chat, new JsonSerializerOptions { WriteIndented = true }));
+            _chatSaveFailed = false;
         }
-        catch (Exception ex) { AddNotice("对话记录保存失败：" + ex.Message); }
+        catch (Exception ex) { _chatSaveFailed = true; AddNotice("对话记录保存失败：" + ex.Message); }
     }
 }

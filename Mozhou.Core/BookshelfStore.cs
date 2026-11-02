@@ -25,7 +25,11 @@ public sealed class BookshelfStore(string dataRoot)
         for (var i = 0; i < books.Count; i++)
         {
             var cached = books[i];
-            try { books[i] = Snapshot(cached.Folder, new ProjectStore(cached.Folder).Load(), cached.LastOpenedAt); }
+            try
+            {
+                using var store = new ProjectStore(cached.Folder);
+                books[i] = Snapshot(cached.Folder, store.Load(), cached.LastOpenedAt);
+            }
             catch (Exception ex) when (IsUnreadableProject(ex))
             {
                 // Keep the cached title and statistics so the user can locate or recover the book.
@@ -67,7 +71,8 @@ public sealed class BookshelfStore(string dataRoot)
             if (books.ContainsKey(normalized)) continue;
             try
             {
-                books.Add(normalized, Snapshot(normalized, new ProjectStore(normalized).Load(), default));
+                using var store = new ProjectStore(normalized);
+                books.Add(normalized, Snapshot(normalized, store.Load(), default));
             }
             catch (Exception ex) when (IsUnreadableProject(ex))
             {

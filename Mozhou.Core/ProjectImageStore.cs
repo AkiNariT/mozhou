@@ -2,13 +2,23 @@ namespace Mozhou.Core;
 
 public sealed class ProjectImageStore(string folder)
 {
+    private const string ImagePrefix = "assets/images/";
+    private readonly string? _documentPath;
+    private readonly object _gate = new();
+    private readonly Dictionary<string, byte[]> _pending = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _materialized = new(StringComparer.OrdinalIgnoreCase);
+    private bool _ownsCache, _disposed;
     public const long MaximumImportBytes = 25L * 1024 * 1024;
+    internal static string CacheRoot => Path.GetFullPath(Path.Combine(Path.GetTempPath(), "Mozhou", "ImageCache"));
     public string Folder { get; } = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
     private string AssetsFolder => Path.Combine(Folder, "assets");
     private string ImagesFolder => Path.Combine(AssetsFolder, "images");
 
+    internal ProjectImageStore(string folder, string documentPath) : this(folder) => _documentPath = documentPath;
+
     public EntryImage Import(string sourcePath)
     {
+        ThrowIfDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         var source = Path.GetFullPath(sourcePath);
         var extension = Path.GetExtension(source).ToLowerInvariant();
@@ -19,15 +29,32 @@ public sealed class ProjectImageStore(string folder)
         var read = input.ReadAtLeast(header, header.Length, false);
         if (!HasSignature(extension, header[..read])) throw new InvalidDataException("图片内容与文件格式不符，未导入。");
         input.Position = 0;
-        EnsureSafeDirectories(true);
         var image = new EntryImage { FileName = Guid.NewGuid().ToString("N") + extension, Title = Path.GetFileNameWithoutExtension(source) };
-        CopyNewFile(input, Path.Combine(ImagesFolder, image.FileName));
+        if (_documentPath == null)
+        {
+            EnsureSafeDirectories(true);
+            CopyNewFile(input, Path.Combine(ImagesFolder, image.FileName));
+        }
+        else
+        {
+            using var memory = new MemoryStream(checked((int)input.Length)); input.CopyTo(memory);
+            var bytes = memory.ToArray();
+            lock (_gate)
+            {
+                ThrowIfDisposed(); EnsureSafeDirectories(true);
+                using var content = new MemoryStream(bytes, false);
+                CopyNewFile(content, Path.Combine(ImagesFolder, image.FileName));
+                _pending.Add(ImagePrefix + image.FileName, bytes); _materialized.Add(image.FileName);
+            }
+        }
         return image;
     }
 
     public string ResolvePath(EntryImage image)
     {
+        ThrowIfDisposed();
         ValidateDescriptor(image);
+        if (_documentPath != null) return ResolveDocumentPath(image);
         EnsureSafeDirectories(false);
         var path = Path.Combine(ImagesFolder, image.FileName);
         RejectLink(path);
@@ -37,6 +64,9 @@ public sealed class ProjectImageStore(string folder)
 
     public IReadOnlyList<string> EnumerateFiles()
     {
+        ThrowIfDisposed();
+        if (_documentPath != null)
+            return DocumentImageNames(true).Select(name => ResolvePath(new EntryImage { FileName = name[ImagePrefix.Length..] })).ToArray();
         EnsureSafeDirectories(false);
         if (!Directory.Exists(ImagesFolder)) return [];
         var files = new List<string>();
@@ -49,9 +79,15 @@ public sealed class ProjectImageStore(string folder)
     }
 
     public void ValidateReferences(NovelProject project)
+        => ValidateReferences(project, true);
+
+    internal void ValidateReferences(NovelProject project, bool includePending)
     {
+        ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(project);
         if (project.Entries == null) throw new InvalidDataException("小说条目列表无效。");
+        // Document validation looks at logical names only; an ordinary text save never reads image BLOBs.
+        var names = _documentPath == null ? null : DocumentImageNames(includePending).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in project.Entries)
         {
@@ -60,7 +96,8 @@ public sealed class ProjectImageStore(string folder)
             {
                 ValidateDescriptor(image);
                 if (!ids.Add(image.Id)) throw new InvalidDataException("参考图片编号重复。");
-                ResolvePath(image);
+                if (names == null) ResolvePath(image);
+                else if (!names.Contains(ImagePrefix + image.FileName)) throw new FileNotFoundException("小说文档缺少参考图片：" + image.FileName);
             }
         }
     }
@@ -69,6 +106,7 @@ public sealed class ProjectImageStore(string folder)
     // The caller validates references in its in-memory project before copying, then saves the new JSON.
     public void CopyTo(string destinationFolder)
     {
+        ThrowIfDisposed();
         var destination = new ProjectImageStore(destinationFolder);
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         if (string.Equals(Folder, destination.Folder, comparison) ||
@@ -87,6 +125,94 @@ public sealed class ProjectImageStore(string folder)
             using var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan);
             CopyNewFile(input, target);
         }
+    }
+
+    internal IReadOnlyDictionary<string, byte[]> PendingFiles()
+    {
+        lock (_gate) { ThrowIfDisposed(); return new Dictionary<string, byte[]>(_pending, StringComparer.OrdinalIgnoreCase); }
+    }
+
+    internal void AcceptPending(IReadOnlyDictionary<string, byte[]> committed)
+    {
+        lock (_gate)
+            foreach (var (name, bytes) in committed)
+                if (_pending.TryGetValue(name, out var current) && ReferenceEquals(bytes, current)) _pending.Remove(name);
+    }
+
+    private IReadOnlyList<string> DocumentImageNames(bool includePending)
+    {
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (File.Exists(_documentPath))
+            foreach (var name in new SingleFileDocument(_documentPath!).ListFiles(ImagePrefix))
+            {
+                if (!IsManagedFileName(name[ImagePrefix.Length..])) throw new InvalidDataException("小说文档包含非法图片文件名。");
+                names.Add(name);
+            }
+        if (includePending) lock (_gate) names.UnionWith(_pending.Keys);
+        return names.OrderBy(name => name, StringComparer.Ordinal).ToArray();
+    }
+
+    private string ResolveDocumentPath(EntryImage image)
+    {
+        lock (_gate)
+        {
+            ThrowIfDisposed(); EnsureSafeDirectories(false);
+            var path = Path.Combine(ImagesFolder, image.FileName); RejectLink(path);
+            if (_materialized.Contains(image.FileName) && File.Exists(path)) return path;
+            var logical = ImagePrefix + image.FileName;
+            if (!_pending.TryGetValue(logical, out var bytes))
+            {
+                var storedName = DocumentImageNames(false).FirstOrDefault(name => string.Equals(name, logical, StringComparison.OrdinalIgnoreCase));
+                bytes = storedName == null ? null : new SingleFileDocument(_documentPath!).ReadFile(storedName);
+            }
+            if (bytes == null) throw new FileNotFoundException("小说文档缺少参考图片：" + image.FileName);
+            if (bytes.LongLength > MaximumImportBytes) throw new InvalidDataException("小说文档中的参考图片超过 25 MiB。");
+            EnsureSafeDirectories(true);
+            using var input = new MemoryStream(bytes, false); CopyNewFile(input, path);
+            _materialized.Add(image.FileName); return path;
+        }
+    }
+
+    internal void DisposeDocumentCache()
+    {
+        lock (_gate)
+        {
+            if (_documentPath == null || _disposed) return;
+            _disposed = true; _pending.Clear(); _materialized.Clear();
+            if (!_ownsCache) return;
+            try
+            {
+                EnsureOwnedCachePath(); RejectLink(CacheRoot); RejectLink(Folder);
+                if (Directory.Exists(Folder)) DeleteCacheTree(Folder, Folder);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+        }
+    }
+
+    private static void DeleteCacheTree(string directory, string ownedRoot)
+    {
+        var full = Path.GetFullPath(directory);
+        if (!string.Equals(full, ownedRoot, StringComparison.OrdinalIgnoreCase) && !full.StartsWith(ownedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new IOException("图片缓存路径超出本次会话目录。");
+        foreach (var entry in Directory.EnumerateFileSystemEntries(full))
+        {
+            var attributes = File.GetAttributes(entry);
+            if ((attributes & FileAttributes.Directory) == 0) File.Delete(entry);
+            else if ((attributes & FileAttributes.ReparsePoint) != 0) Directory.Delete(entry);
+            else DeleteCacheTree(entry, ownedRoot);
+        }
+        Directory.Delete(full);
+    }
+
+    private void EnsureOwnedCachePath()
+    {
+        if (!string.Equals(Path.GetDirectoryName(Folder), CacheRoot, StringComparison.OrdinalIgnoreCase) || !Guid.TryParseExact(Path.GetFileName(Folder), "N", out _))
+            throw new IOException("图片缓存目录无效。");
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed) throw new ObjectDisposedException(nameof(ProjectImageStore));
     }
 
     internal static void ValidateDescriptor(EntryImage? image)
@@ -113,6 +239,12 @@ public sealed class ProjectImageStore(string folder)
 
     private void EnsureSafeDirectories(bool create)
     {
+        if (_documentPath != null && create && !_ownsCache)
+        {
+            EnsureOwnedCachePath(); RejectLink(Path.GetDirectoryName(CacheRoot)!); RejectLink(CacheRoot);
+            if (Directory.Exists(Folder) || File.Exists(Folder)) throw new IOException("本次图片缓存目录已被其他文件占用。");
+            Directory.CreateDirectory(Folder); _ownsCache = true;
+        }
         foreach (var directory in new[] { Folder, AssetsFolder, ImagesFolder })
         {
             RejectLink(directory);
