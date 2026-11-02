@@ -238,6 +238,8 @@ var tests = new (string Name, Action<string> Test)[]
     })
 };
 tests = tests.Concat(StatisticsChecks.Cases).ToArray();
+tests = tests.Concat(ImageChecks.Cases).ToArray();
+if (args.Contains("--reparse", StringComparer.Ordinal)) tests = tests.Concat(ImageChecks.ReparseCases).ToArray();
 var failures = 0;
 foreach (var (name, test) in tests)
 {

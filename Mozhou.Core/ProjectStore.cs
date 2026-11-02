@@ -26,6 +26,9 @@ public sealed class ProjectStore(string folder)
 
     public void Save(NovelProject project)
     {
+        ArgumentNullException.ThrowIfNull(project);
+        // Old executables reject version 2 instead of dropping image metadata on their next save.
+        if (project.FormatVersion == 1 && project.Entries?.Any(entry => entry?.Images?.Count > 0) == true) project.FormatVersion = 2;
         Validate(project);
         Directory.CreateDirectory(Folder);
         using var gate = AcquireWriteLock();
@@ -77,8 +80,12 @@ public sealed class ProjectStore(string folder)
 
     public void CreateBackup(string destinationZip)
     {
+        using var gate = AcquireWriteLock();
         var current = File.ReadAllBytes(FilePath);
-        Parse(current);
+        var project = Parse(current);
+        var images = new ProjectImageStore(Folder);
+        images.ValidateReferences(project);
+        var imageFiles = images.EnumerateFiles();
         var destination = ValidateDestination(destinationZip);
         var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -96,6 +103,7 @@ public sealed class ProjectStore(string folder)
                     // 助手聊天记录若存在，同属小说备份；不扫描小说目录外或凭据文件。
                     var chat = Path.Combine(Folder, "assistant-chat.json");
                     if (File.Exists(chat) && !IsLink(chat)) AddZipFile(zip, chat, "assistant-chat.json");
+                    foreach (var image in imageFiles) AddZipFile(zip, image, "assets/images/" + Path.GetFileName(image));
                 }
                 output.Flush(true);
             }
@@ -129,11 +137,14 @@ public sealed class ProjectStore(string folder)
     {
         var full = Path.GetFullPath(destination);
         var backupRoot = Path.Combine(Folder, "backups") + Path.DirectorySeparatorChar;
+        var assetsRoot = Path.Combine(Folder, "assets");
         if (string.Equals(full, FilePath, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(full, FilePath + ".bak", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(full, Path.Combine(Folder, "assistant-chat.json"), StringComparison.OrdinalIgnoreCase) ||
             string.Equals(full, Path.Combine(Folder, "project.mozhou.lock"), StringComparison.OrdinalIgnoreCase) ||
-            full.StartsWith(backupRoot, StringComparison.OrdinalIgnoreCase))
+            full.StartsWith(backupRoot, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(full, assetsRoot, StringComparison.OrdinalIgnoreCase) ||
+            full.StartsWith(assetsRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             throw new IOException("导出目标不能覆盖小说数据或内部备份。");
         Directory.CreateDirectory(Path.GetDirectoryName(full)!);
         return full;
@@ -201,13 +212,22 @@ public sealed class ProjectStore(string folder)
     private static void Validate(NovelProject project)
     {
         ArgumentNullException.ThrowIfNull(project);
-        if (project.FormatVersion != 1) throw new InvalidDataException("此小说文件版本不受支持，请勿覆盖原文件。");
+        if (project.FormatVersion is not 1 and not 2) throw new InvalidDataException("此小说文件版本不受支持，请勿覆盖原文件。");
         if (string.IsNullOrWhiteSpace(project.Id) || project.Title == null || project.Description == null || project.Entries == null || project.Relations == null)
             throw new InvalidDataException("小说文件缺少必要字段。");
         var ids = new HashSet<string>(StringComparer.Ordinal);
+        var imageIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var entry in project.Entries)
-            if (entry == null || string.IsNullOrWhiteSpace(entry.Id) || !ids.Add(entry.Id) || entry.Kind == null || entry.Title == null || entry.Group == null || entry.Summary == null || entry.Content == null || entry.Tags == null || entry.Color == null || entry.LinkedIds == null || !double.IsFinite(entry.X) || !double.IsFinite(entry.Y))
+        {
+            if (entry == null || string.IsNullOrWhiteSpace(entry.Id) || !ids.Add(entry.Id) || entry.Kind == null || entry.Title == null || entry.Group == null || entry.Summary == null || entry.Content == null || entry.Tags == null || entry.Color == null || entry.LinkedIds == null || entry.Images == null || !double.IsFinite(entry.X) || !double.IsFinite(entry.Y))
                 throw new InvalidDataException("小说条目缺少字段、编号重复或坐标无效。");
+            if (project.FormatVersion == 1 && entry.Images.Count > 0) throw new InvalidDataException("包含参考图片的小说必须使用版本 2，原文件未修改。");
+            foreach (var image in entry.Images)
+            {
+                ProjectImageStore.ValidateDescriptor(image);
+                if (!imageIds.Add(image.Id)) throw new InvalidDataException("参考图片编号重复。");
+            }
+        }
         var relationIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (var edge in project.Relations)
             if (edge == null || string.IsNullOrWhiteSpace(edge.Id) || !relationIds.Add(edge.Id) || !ids.Contains(edge.FromId) || !ids.Contains(edge.ToId) || edge.Label == null || edge.Note == null || edge.Color == null)

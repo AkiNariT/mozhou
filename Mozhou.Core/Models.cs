@@ -24,8 +24,16 @@ public sealed class NovelEntry
     public double X { get; set; } = 80;
     public double Y { get; set; } = 80;
     public List<string> LinkedIds { get; set; } = [];
+    public List<EntryImage> Images { get; set; } = [];
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
     public override string ToString() => Title;
+}
+
+public sealed class EntryImage
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string FileName { get; set; } = "";
+    public string Title { get; set; } = "";
 }
 
 public sealed class CharacterRelation

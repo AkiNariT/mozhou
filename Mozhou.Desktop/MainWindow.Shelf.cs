@@ -69,6 +69,7 @@ public partial class MainWindow
         RememberCurrentProject();
         _saveTimer.Stop();
         _store = null; _selected = null; _project = new NovelProject(); _dirty = false;
+        ClearReferenceImages();
         PromptBox.Clear(); ClearChatForProject();
         ShowBookshelf();
         return true;

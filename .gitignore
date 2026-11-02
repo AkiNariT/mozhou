@@ -17,6 +17,7 @@
 # Local manuscripts, chat history and personal settings
 **/Library/
 **/backups/
+**/assets/images/
 **/.codex-workspace/
 project.mozhou.json*
 project.mozhou.lock

@@ -1,0 +1,42 @@
+条目参考图实现计划 · 2026-11-02
+
+目标与选定方案
+用户选定条目参考图区：一条资料可附多图，点击放大。正文仍为纯文本。
+所有条目均可附图，场景图放在世界观或灵感条目中；暖白纸感、可折叠、完整缩略图不裁切。
+Windows/.NET 8/WPF，无第三方依赖。沿用当前干净工作目录；现有发布版独立运行。
+
+数据和兼容
+NovelEntry.Images: List<EntryImage>；EntryImage: Id / FileName / Title。
+图片复制到小说 assets/images 下，用随机文件名和相对引用，不保存外部原图路径。
+PNG/JPEG/BMP/GIF，GIF显示首帧；每图最多25MiB、4000万像素，解码失败不改变条目。
+无图旧稿保持格式1；首次保存含图时升级格式2，旧版会拒绝覆盖；格式2删除全部图后不降级。
+移除只改关联，管理图保留供历史恢复。完整ZIP包含受管理图片；另存副本复制图片后保存内存草稿。
+文件缺失显示占位，正文可照常编辑；备份和副本遇当前引用缺失明确报错，不报告完整成功。
+不向Codex自动发送图片；文字导出保持纯正文。
+
+步骤1：Core存储（并行负责）
+Models.cs新增结构；ProjectImageStore.cs封装导入、路径解析、引用验证、枚举和复制。
+接口：Import(string)->EntryImage；ResolvePath(EntryImage)->string；CopyTo(string destinationFolder)；
+ValidateReferences(NovelProject)；EnumerateFiles()->IReadOnlyList<string>。
+ProjectStore保存兼容1/2，ZIP加入资产，并保护assets目录不被文字导出覆盖。
+Core.Tests先验证旧稿兼容、导入源不变、非法路径、原子备份与历史图片恢复，再实现并运行。
+
+步骤2：WPF图像与图库（并行负责）
+LocalImageLoader.Load(string path,int maxPixels)返回已释放文件句柄且冻结的BitmapSource；Validate(string path)验证格式/尺寸。
+ReferenceImagesView.SetImages(string? folder,IReadOnlyList<EntryImage>)；事件AddRequested、PreviewRequested、RemoveRequested。
+ImagePreviewWindow(Window owner,string path,string title)显示适应窗口图像，可缩放和Esc关闭。
+缩略图按长边缩小，缺失或损坏图片占位，不阻塞正文。
+
+步骤3：编辑器集成（根代理）
+MainWindow.Images.cs拥有选择文件、导入与关联、移除与保存、单一预览窗口的生命周期。
+AddReferenceImages(string[] paths)在Flush成功后才开始；整批图验证成功后才加入当前条目；保存失败保留内存关联可另存。
+RemoveReferenceImage(EntryImage)解除关联并保存；恢复上一版本可恢复图。
+MainWindow.xaml在正文下方嵌入图库；SelectEntry重绑定；返回书架清空图片和关闭预览。
+SaveCopyClick在保存草稿之前验证并复制图片；完整成功后切换到副本。
+Desktop.Tests使用临时小说和程序生成的测试图验证真实导入、重新加载、切换、删除原图、冲突和解码。
+
+步骤4：交付
+运行Core、Desktop及受模型/存储影响的Bookshelf/Graph/Codex既有检查，记录实际结果。
+在独立测试小说中查看暖白图库与放大窗口，不向用户书架加入测试书。
+更新版本0.5.0和使用说明；发布独立目录与不含用户数据的ZIP，本机新版沿用现有书架设置。
+检查源代码及发布包没有小说、参考图、聊天或账号配置，再同步原GitHub仓库。

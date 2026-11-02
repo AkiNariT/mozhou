@@ -47,6 +47,8 @@ internal static class Program
         File.WriteAllText(store.FilePath, "{broken");
         Check(new ProjectStore(dir).RestorePrevious().Title == "雾港来信 · 示例", "corrupt main recovers valid previous version");
         Check(Directory.GetFiles(Path.Combine(dir,"backups"), "*.json").Any(x=>File.ReadAllText(x)=="{broken"), "corrupt original retained in timestamp backup");
+        ReferenceImageChecks.Run(Check);
+        ImageDecodingChecks.Run(Check);
         BookshelfNavigationChecks.Run(Check);
         StatisticsIntegrationChecks.Run(Check);
         StreamingChecks.Run(Check);

@@ -92,7 +92,7 @@
      </Grid>
      <Border Grid.Row="1" Background="{StaticResource Paper}" BorderBrush="{StaticResource Line}" BorderThickness="1,0,0,1" MaxWidth="840">
       <Grid Margin="32,33,32,22">
-       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+       <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
        <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
        <TextBlock Text="{Binding Text, ElementName=GroupBox}" FontSize="11" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,0,0,15">
@@ -112,6 +112,7 @@
         </StackPanel>
        </ScrollViewer>
        <TextBox x:Name="ContentBox" Grid.Row="1" AcceptsReturn="True" AcceptsTab="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" BorderThickness="0" Background="Transparent" FontSize="18" FontFamily="{StaticResource DisplayFont}" TextBlock.LineHeight="31" TextBlock.LineStackingStrategy="BlockLineHeight" Padding="0,2,0,0" VerticalContentAlignment="Top" TextChanged="EditorChanged" IsUndoEnabled="True" UndoLimit="1000" AutomationProperties.Name="正文编辑器"/>
+       <local:ReferenceImagesView x:Name="ReferenceImages" Grid.Row="2" Margin="0,16,0,0"/>
       </Grid>
      </Border>
      <Grid Grid.Row="2" Margin="3,13,3,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

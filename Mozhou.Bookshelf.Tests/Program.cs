@@ -70,7 +70,7 @@ var tests = new (string Name, Action<string> Run)[]
         var folder = SaveBook(dir, "invalid-structure", "应保留缓存"); var shelf = Shelf(dir);
         shelf.Remember(folder, new ProjectStore(folder).Load());
         var manuscriptPath = new ProjectStore(folder).FilePath;
-        foreach (var invalid in new[] { "{}", "null", "{\"FormatVersion\":2,\"Id\":\"future\",\"Title\":\"未来格式\",\"Entries\":[],\"Relations\":[]}" })
+        foreach (var invalid in new[] { "{}", "null", "{\"FormatVersion\":3,\"Id\":\"future\",\"Title\":\"未来格式\",\"Entries\":[],\"Relations\":[]}" })
         {
             File.WriteAllText(manuscriptPath, invalid);
             var refreshed = shelf.Refresh().Single();

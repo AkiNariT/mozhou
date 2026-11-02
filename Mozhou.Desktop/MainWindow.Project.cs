@@ -15,14 +15,23 @@ public partial class MainWindow
         var path = Path.Combine(dialog.FolderName, SafeFilename(_project.Title) + "-副本-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N")[..4]);
         try
         {
-            var copy = System.Text.Json.JsonSerializer.Deserialize<NovelProject>(System.Text.Json.JsonSerializer.Serialize(_project))!;
-            new ProjectStore(path).Save(copy);
-            if (!_chatDamaged) File.WriteAllText(Path.Combine(path, "assistant-chat.json"), System.Text.Json.JsonSerializer.Serialize(_chat));
+            SaveProjectCopy(path);
             OpenFolder(path);
             MessageBox.Show(this, "完整副本已保存，并已切换到副本继续编辑。\n原小说文件保留在原位置。\n\n" + path, "副本已保存");
         }
         catch (Exception ex) { ShowError("保存副本失败", ex); }
     }
+    private void SaveProjectCopy(string path)
+    {
+        if (_store == null) throw new InvalidOperationException("请先打开小说。");
+        var images = new ProjectImageStore(_store.Folder);
+        images.ValidateReferences(_project);
+        images.CopyTo(path);
+        var copy = System.Text.Json.JsonSerializer.Deserialize<NovelProject>(System.Text.Json.JsonSerializer.Serialize(_project))!;
+        new ProjectStore(path).Save(copy);
+        if (!_chatDamaged) File.WriteAllText(Path.Combine(path, "assistant-chat.json"), System.Text.Json.JsonSerializer.Serialize(_chat));
+    }
+
     private void NewProjectClick(object sender, RoutedEventArgs e)
     {
         if (!CanSwitchProjects() || !Flush()) return;
@@ -83,5 +92,5 @@ public partial class MainWindow
         catch (Exception ex) { ShowError("恢复失败", ex); }
     }
     private static string SafeFilename(string s) => string.Concat(s.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
-    private void HelpClick(object sender, RoutedEventArgs e) => Dialogs.Text(this, "使用墨舟", "墨舟 · 本地小说工作台\n\n1. 新建小说或打开已有小说文件夹。每本小说的数据存放在 project.mozhou.json 中，可以随整个文件夹移动。\n\n2. 在正文、人设、大纲、世界观或灵感中点击 ＋ 创建条目。编辑后 0.75 秒自动保存，Ctrl+S 立即保存。分卷、分类和标签用于整理资料。\n\n3. 人物关系页支持新增有向关系。拖动人物调整位置，双击打开人设，点击关系标签修改说明。\n\n4. 右侧点击连接 Codex。使用本机官方 Codex 的 ChatGPT 登录，共用现有额度。连接不生成内容，发送消息才开始调用。无需填写 API Key。\n\n5. 发送前可查看上下文。当前条目和勾选的设定会通过 Codex 发往云端；默认不会附带其他章节全文。回答可复制、追加到发起请求时的条目，或保存为灵感笔记。\n\n6. 项目菜单可导出正文 Markdown/TXT、创建完整 ZIP 备份、恢复上一次保存。自动备份保留最近 30 个版本；重要阶段建议另做 ZIP 备份。保存冲突时，用「另存当前小说副本」保留全部未保存内容。\n\n7. Codex 未登录时，请先在官方 Codex 应用完成 ChatGPT 登录，然后重新连接。路径检测失败时可点右上角齿轮选择 codex.exe。\n\n正文使用纯文本编辑，Markdown 标记可直接输入。默认启动先进入小说书架。书架支持搜索、新建、打开与继续编辑；顶部可返回书架。卡片菜单中的“移出书架”只移除入口，不删除文件。字数按中文字符和英文单词估算。");
+    private void HelpClick(object sender, RoutedEventArgs e) => Dialogs.Text(this, "使用墨舟", "墨舟 · 本地小说工作台\n\n1. 新建小说或打开已有小说文件夹。每本小说的数据存放在 project.mozhou.json 中，可以随整个文件夹移动。\n\n2. 在正文、人设、大纲、世界观或灵感中点击 ＋ 创建条目。编辑后 0.75 秒自动保存，Ctrl+S 立即保存。分卷、分类和标签用于整理资料。\n\n3. 人物关系页支持新增有向关系。拖动人物调整位置，双击打开人设，点击关系标签修改说明。\n\n4. 右侧点击连接 Codex。使用本机官方 Codex 的 ChatGPT 登录，共用现有额度。连接不生成内容，发送消息才开始调用。无需填写 API Key。\n\n5. 发送前可查看上下文。当前条目和勾选的设定会通过 Codex 发往云端；默认不会附带其他章节全文。回答可复制、追加到发起请求时的条目，或保存为灵感笔记。\n\n6. 项目菜单可导出正文 Markdown/TXT、创建完整 ZIP 备份、恢复上一次保存。自动备份保留最近 30 个版本；重要阶段建议另做 ZIP 备份。保存冲突时，用「另存当前小说副本」保留全部未保存内容。\n\n7. Codex 未登录时，请先在官方 Codex 应用完成 ChatGPT 登录，然后重新连接。路径检测失败时可点右上角齿轮选择 codex.exe。\n\n参考图：条目下方点击「添加图片」可选多张 PNG/JPEG/BMP/GIF（首帧），点击缩略图放大与缩放。图片会复制到小说 assets/images 文件夹，随 ZIP 备份和另存副本保存。移除只解除关联，原图与历史图片保留。单图最多 25 MiB、4000 万像素。首次添加图片后的小说需用 0.5.0 或更新兼容版本打开；参考图不自动发送给 Codex，也不嵌入正文导出。\n\n正文使用纯文本编辑，Markdown 标记可直接输入。默认启动先进入小说书架。书架支持搜索、新建、打开与继续编辑；顶部可返回书架。卡片菜单中的“移出书架”只移除入口，不删除文件。字数按中文字符和英文单词估算。");
 }

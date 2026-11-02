@@ -20,7 +20,7 @@ public partial class MainWindow : Window
     private static readonly Dictionary<string, string> SectionNames = new() { ["chapter"] = "正文写作", ["character"] = "人设档案", ["graph"] = "人物关系", ["outline"] = "故事大纲", ["world"] = "世界观设定", ["note"] = "灵感笔记" };
     public MainWindow(string? initialProject)
     {
-        InitializeComponent(); _settings = SettingsStore.Read(); WireBookshelf();
+        InitializeComponent(); _settings = SettingsStore.Read(); WireBookshelf(); WireReferenceImages();
         _saveTimer.Tick += (_, _) => { _saveTimer.Stop(); Flush(); };
         PreviewKeyDown += (_, e) => { if (e.Key == Key.S && Keyboard.Modifiers == ModifierKeys.Control) { Flush(); e.Handled = true; } };
         CharacterGraph.Changed += () => { MarkDirty(); Flush(); };
@@ -43,6 +43,7 @@ public partial class MainWindow : Window
             if (MessageBox.Show(this, "小说文件无法读取，但发现了上一次保存的备份。\n是否恢复该备份？恢复前的文件会保留在 backups 文件夹中。\n\n原因：" + ex.Message, "恢复小说备份", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) throw;
             project = store.RestorePrevious();
         }
+        CloseReferencePreview();
         _store = store; _project = project; _selected = null; _dirty = false; _section = "chapter";
         _settings.LastProjectPath = store.Folder; SavePreferences();
         ProjectTitle.Text = project.Title; ProjectDescription.Text = string.IsNullOrWhiteSpace(project.Description) ? "属于你的故事，在这里展开。" : project.Description;
@@ -103,6 +104,7 @@ public partial class MainWindow : Window
         GroupLabel.Text = entry?.Kind == "character" ? "所属阵营 / 身份" : entry?.Kind == "chapter" ? "所属分卷" : "分类";
         EditorBreadcrumb.Text = $"{_project.Title}  /  {SectionNames.GetValueOrDefault(entry?.Kind ?? _section, "创作资料")}";
         _loading = false;
+        RefreshReferenceImages();
         if (_section != "graph") { EditorPane.Visibility = entry == null ? Visibility.Collapsed : Visibility.Visible; EmptyPane.Visibility = entry == null ? Visibility.Visible : Visibility.Collapsed; }
         UpdateCounts();
     }
