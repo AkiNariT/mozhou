@@ -38,6 +38,55 @@ internal static class ImageChecks
             Equal(image.FileName, restored.Entries[0].Images.Single().FileName);
             SameBytes(Png, images.ResolvePath(restored.Entries[0].Images.Single()), "history image bytes were lost after removal");
         }),
+        ("Each look field alone promotes old manuscripts to format 3 and survives clearing and restoring", dir =>
+        {
+            foreach (var field in new[] { "Hairstyle", "Outfit", "LookName" })
+            {
+                var folder = Path.Combine(dir, field);
+                using var store = new ProjectStore(folder);
+                var image = store.Images.Import(Source(dir, field + ".png", Png));
+                var project = Project(); project.Entries[0].Images.Add(image);
+                if (field == "Outfit") store.Save(project); // exercise both v1 and v2 promotion
+                var descriptor = JsonSerializer.SerializeToNode(image)!; descriptor[field] = "冬至";
+                project.Entries[0].Images[0] = descriptor.Deserialize<EntryImage>()!;
+                store.Save(project);
+                Equal(3, store.Load().FormatVersion);
+                var saved = JsonNode.Parse(File.ReadAllBytes(store.FilePath))!;
+                Equal("冬至", (string?)saved["Entries"]![0]!["Images"]![0]![field]);
+                project.Entries[0].Images[0] = image; store.Save(project);
+                Equal(3, store.Load().FormatVersion);
+                var restored = store.RestorePrevious();
+                var restoredImage = restored.Entries[0].Images.Single();
+                Equal("冬至", (string?)JsonSerializer.SerializeToNode(restoredImage)![field]);
+                SameBytes(Png, store.Images.ResolvePath(restoredImage), "classification changed the image bytes");
+            }
+        }),
+        ("Version 2 accepts missing look fields and rejects populated or null look fields without rewriting", dir =>
+        {
+            using var store = new ProjectStore(dir);
+            var project = Project(); project.FormatVersion = 2;
+            project.Entries[0].Images.Add(store.Images.Import(Source(dir, "legacy.png", Png)));
+            var json = JsonSerializer.SerializeToNode(project)!;
+            var image = json["Entries"]![0]!["Images"]![0]!.AsObject();
+            image.Remove("Hairstyle"); image.Remove("Outfit"); image.Remove("LookName");
+            File.WriteAllText(store.FilePath, json.ToJsonString());
+            var original = File.ReadAllBytes(store.FilePath);
+            var loaded = store.Load(); Equal(2, loaded.FormatVersion);
+            var legacy = loaded.Entries[0].Images.Single(); Equal("", legacy.Hairstyle); Equal("", legacy.Outfit); Equal("", legacy.LookName);
+            SameBytes(original, store.FilePath, "loading old image metadata rewrote the manuscript");
+            foreach (var field in new[] { "Hairstyle", "Outfit", "LookName" })
+            {
+                foreach (var value in new string?[] { "春日", null })
+                {
+                    image[field] = value;
+                    File.WriteAllText(store.FilePath, json.ToJsonString());
+                    var invalid = File.ReadAllBytes(store.FilePath);
+                    Throws<InvalidDataException>(() => store.Load());
+                    SameBytes(invalid, store.FilePath, "opening invalid classification rewrote the manuscript");
+                }
+                image.Remove(field);
+            }
+        }),
         ("Format 1 with populated Images is rejected without modifying its bytes", dir =>
         {
             var project = Project(); project.Entries[0].Images.Add(new EntryImage { FileName = Guid.NewGuid().ToString("N") + ".png", Title = "should require version 2" });

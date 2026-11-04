@@ -34,6 +34,9 @@ public sealed class EntryImage
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string FileName { get; set; } = "";
     public string Title { get; set; } = "";
+    public string Hairstyle { get; set; } = "";
+    public string Outfit { get; set; } = "";
+    public string LookName { get; set; } = "";
 }
 
 public sealed class CharacterRelation

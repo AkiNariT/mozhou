@@ -49,6 +49,7 @@ internal static class Program
         Check(Directory.GetFiles(Path.Combine(dir,"backups"), "*.json").Any(x=>File.ReadAllText(x)=="{broken"), "corrupt original retained in timestamp backup");
         DocumentNavigationChecks.Run(Check);
         ReferenceImageChecks.Run(Check);
+        CharacterLookChecks.Run(Check);
         ImageDecodingChecks.Run(Check);
         BookshelfNavigationChecks.Run(Check);
         StatisticsIntegrationChecks.Run(Check);

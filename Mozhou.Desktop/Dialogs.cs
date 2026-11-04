@@ -21,6 +21,81 @@ public static class Dialogs
         window.Loaded += (_, _) => { input.Focus(); input.SelectAll(); };
         return window.ShowDialog() == true ? input.Text.Trim() : null;
     }
+    public static (string LookName, string Hairstyle, string Outfit)? EditImageLook(Window owner, NovelEntry character, EntryImage image, bool firstLook)
+    {
+        var window = Shell(owner, "编辑造型", 460, 400);
+        var panel = new DockPanel { Margin = new Thickness(24) };
+        window.Content = panel;
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        DockPanel.SetDock(actions, Dock.Bottom);
+        panel.Children.Add(actions);
+        actions.Children.Add(new Button { Content = "取消", IsCancel = true, Margin = new Thickness(0, 0, 10, 0) });
+        var save = new Button { Content = "保存造型", IsDefault = true, Style = (Style)owner.FindResource("Primary") };
+        save.Click += (_, _) => window.DialogResult = true;
+        actions.Children.Add(save);
+
+        var fields = new StackPanel();
+        panel.Children.Add(new ScrollViewer { Content = fields, VerticalScrollBarVisibility = ScrollBarVisibility.Auto });
+        var caption = $"{character.Title}  /  {image.Title}";
+        fields.Children.Add(new TextBlock
+        {
+            Text = caption, ToolTip = caption, TextTrimming = TextTrimming.CharacterEllipsis,
+            Foreground = (Brush)owner.FindResource("Accent"), Margin = new Thickness(0, 0, 0, 12)
+        });
+        var name = new TextBox { Text = image.LookName };
+        var hair = new TextBox { Text = image.Hairstyle };
+        var outfit = new TextBox { Text = image.Outfit };
+        AddField("造型名", "为这套造型取个名字，例如 入学第一天", name, character.Images.Select(x => x.LookName), existing =>
+        {
+            var shared = CharacterLooks.SharedTraits(character.Images, existing);
+            hair.Text = shared.Hairstyle;
+            outfit.Text = shared.Outfit;
+        });
+        AddField("发型", "例如 长发、短发、马尾", hair, character.Images.Select(x => x.Hairstyle));
+        AddField("衣着", "例如 校服、便装、礼服", outfit, character.Images.Select(x => x.Outfit));
+        fields.Children.Add(new TextBlock
+        {
+            Text = "同名图片会归到一组。选用已有造型可带入共同的发型和衣着，各项也可留空。",
+            FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)owner.FindResource("Muted")
+        });
+        if (firstLook) fields.Children.Add(new TextBlock
+        {
+            Text = "首次保存造型后，请用墨舟 0.7.0 或更新版本打开这本小说。",
+            FontSize = 11, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)owner.FindResource("Muted")
+        });
+        window.Loaded += (_, _) => name.Focus();
+        return window.ShowDialog() == true ? (name.Text, hair.Text, outfit.Text) : null;
+
+        void AddField(string label, string hint, TextBox input, IEnumerable<string> suggestions, Action<string>? onPick = null)
+        {
+            fields.Children.Add(new TextBlock { Text = label, Margin = new Thickness(0, 0, 0, 4) });
+            var row = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+            fields.Children.Add(row);
+            input.ToolTip = hint;
+            System.Windows.Automation.AutomationProperties.SetName(input, label);
+            var menu = new ContextMenu();
+            foreach (var value in suggestions.Select(x => x.Trim()).Where(x => x.Length > 0)
+                         .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.CurrentCulture))
+            {
+                var item = new MenuItem { Header = new TextBlock { Text = value }, ToolTip = value };
+                item.Click += (_, _) => { input.Text = value; onPick?.Invoke(value); };
+                menu.Items.Add(item);
+            }
+            if (menu.Items.Count > 0)
+            {
+                var pick = new Button { Content = "选用 ▾", ContextMenu = menu, Margin = new Thickness(6, 0, 0, 0),
+                    Padding = new Thickness(8, 2, 8, 2), Style = (Style)owner.FindResource("Ghost") };
+                System.Windows.Automation.AutomationProperties.SetName(pick, "选用已有" + label);
+                menu.PlacementTarget = pick;
+                menu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+                pick.Click += (_, _) => menu.IsOpen = true;
+                DockPanel.SetDock(pick, Dock.Right);
+                row.Children.Add(pick);
+            }
+            row.Children.Add(input);
+        }
+    }
+
     public static void Text(Window owner, string title, string text)
     {
         var window = Shell(owner, title, 800, 650);

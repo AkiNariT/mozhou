@@ -217,7 +217,8 @@ public sealed class ProjectImageStore(string folder)
 
     internal static void ValidateDescriptor(EntryImage? image)
     {
-        if (image == null || string.IsNullOrWhiteSpace(image.Id) || image.Title == null || !IsManagedFileName(image.FileName))
+        if (image == null || string.IsNullOrWhiteSpace(image.Id) || image.Title == null || !IsManagedFileName(image.FileName) ||
+            image.Hairstyle == null || image.Outfit == null || image.LookName == null)
             throw new InvalidDataException("参考图片记录包含空字段或非法文件名。");
     }
 

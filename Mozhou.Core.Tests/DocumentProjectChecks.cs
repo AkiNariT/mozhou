@@ -170,9 +170,15 @@ internal static class DocumentProjectChecks
             });
             using var source = new ProjectStore(sourcePath); var dirty = source.Load(); dirty.Entries[0].Content = "完整副本必须包含的未保存正文";
             var pending = source.Images.Import(Source(dir, "pending-copy.png")); dirty.Entries[1].Images.Add(pending);
+            pending.Hairstyle = "高马尾"; pending.Outfit = "巡夜披风";
+            dirty.Entries[1].Images[0].LookName = pending.LookName = "雪夜巡城";
             var target = DocumentPath(dir, "complete-copy"); source.SaveDocumentCopy(target, dirty, overrideChat);
             using var copy = new ProjectStore(target); var loaded = copy.Load();
             Equal("完整副本必须包含的未保存正文", loaded.Entries[0].Content); Equal(2, loaded.Entries[1].Images.Count);
+            Equal(3, loaded.FormatVersion);
+            var copiedLook = loaded.Entries[1].Images.Single(image => image.Id == pending.Id);
+            Equal("高马尾", copiedLook.Hairstyle); Equal("巡夜披风", copiedLook.Outfit);
+            True(loaded.Entries[1].Images.All(image => image.LookName == "雪夜巡城"), "images sharing a named look lost their name in the copy");
             var document = new SingleFileDocument(target);
             foreach (var image in new[] { currentImage, historicalImage, pending }) SameBytes(Png, document.ReadFile(ImagePath(image)), "complete copy omitted a current, pending or historical image");
             SameBytes(previousBytes, document.ReadFile(Previous), "copy discarded the original previous save");

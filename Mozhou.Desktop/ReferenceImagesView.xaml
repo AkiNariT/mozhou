@@ -1,19 +1,43 @@
 <UserControl x:Class="Mozhou.Desktop.ReferenceImagesView"
  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
- MaxHeight="180" UseLayoutRounding="True">
+ UseLayoutRounding="True">
+ <UserControl.Resources>
+  <DataTemplate x:Key="FilterOptionTemplate">
+   <TextBlock Text="{Binding}" ToolTip="{Binding}" MaxWidth="200" TextTrimming="CharacterEllipsis"/>
+  </DataTemplate>
+ </UserControl.Resources>
  <Border BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Background="{StaticResource Paper}">
   <Grid Margin="0,4,0,0">
    <Expander x:Name="ImagesExpander" IsExpanded="False" Expanded="ImagesExpanded" Collapsed="ImagesCollapsed">
     <Expander.Header><TextBlock x:Name="HeaderText" Text="参考图 · 0" FontSize="12"/></Expander.Header>
-    <ScrollViewer Height="130" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" CanContentScroll="False">
+    <StackPanel>
+     <Grid x:Name="LookFilters" Margin="0,0,0,7" Visibility="Collapsed">
+      <Grid.ColumnDefinitions>
+       <ColumnDefinition Width="1.3*" MaxWidth="162"/><ColumnDefinition Width="*" MaxWidth="132"/><ColumnDefinition Width="*" MaxWidth="132"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Margin="0,0,8,0">
+       <TextBlock Text="造型名称" FontSize="11" Margin="0,0,0,3"/>
+       <ComboBox x:Name="LookFilter" FontSize="11" MinHeight="28" ItemTemplate="{StaticResource FilterOptionTemplate}" SelectionChanged="LookFilterChanged" AutomationProperties.Name="按造型名称筛选"/>
+      </StackPanel>
+      <StackPanel Grid.Column="1" Margin="0,0,8,0">
+       <TextBlock Text="发型" FontSize="11" Margin="0,0,0,3"/>
+       <ComboBox x:Name="HairstyleFilter" FontSize="11" MinHeight="28" ItemTemplate="{StaticResource FilterOptionTemplate}" SelectionChanged="LookFilterChanged" AutomationProperties.Name="按发型筛选"/>
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+       <TextBlock Text="衣着" FontSize="11" Margin="0,0,0,3"/>
+       <ComboBox x:Name="OutfitFilter" FontSize="11" MinHeight="28" ItemTemplate="{StaticResource FilterOptionTemplate}" SelectionChanged="LookFilterChanged" AutomationProperties.Name="按衣着筛选"/>
+      </StackPanel>
+     </Grid>
+     <TextBlock x:Name="NoMatches" Text="没有符合筛选条件的参考图" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,8" Visibility="Collapsed"/>
+     <ScrollViewer x:Name="ImageStrip" Height="130" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" CanContentScroll="False">
      <ItemsControl x:Name="ImageList" VerticalAlignment="Top">
       <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
       <ItemsControl.ItemTemplate>
        <DataTemplate>
         <Border Width="148" Margin="0,0,10,0" BorderBrush="{StaticResource Line}" BorderThickness="1" Background="{StaticResource Surface}" CornerRadius="2">
          <Grid>
-          <Grid.RowDefinitions><RowDefinition Height="80"/><RowDefinition Height="25"/></Grid.RowDefinitions>
+          <Grid.RowDefinitions><RowDefinition Height="80"/><RowDefinition Height="25"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
           <Button Click="PreviewClick" Tag="{Binding Image}" Style="{StaticResource Ghost}" Padding="5" MinHeight="0" IsEnabled="{Binding CanPreview}" ToolTip="{Binding PreviewHint}" AutomationProperties.Name="{Binding PreviewHint}">
            <Grid Width="136" Height="68">
             <Image Source="{Binding Thumbnail}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
@@ -25,12 +49,18 @@
            <TextBlock Text="{Binding Title}" ToolTip="{Binding Title}" TextTrimming="CharacterEllipsis" FontSize="11" VerticalAlignment="Center" Foreground="{StaticResource Muted}" Margin="0,0,3,0"/>
            <Button Grid.Column="1" Content="移除" Tag="{Binding Image}" Click="RemoveClick" Style="{StaticResource Ghost}" MinHeight="22" Padding="3,0" FontSize="10" ToolTip="从当前条目移除参考图" AutomationProperties.Name="移除参考图"/>
           </Grid>
+          <Grid Grid.Row="2" Margin="7,0,4,3" Visibility="{Binding LookVisibility}">
+           <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+           <TextBlock Text="{Binding LookSummary}" ToolTip="{Binding LookDetails}" TextTrimming="CharacterEllipsis" FontSize="11" VerticalAlignment="Center" Foreground="{StaticResource Ink}" Margin="0,0,3,0"/>
+           <Button Grid.Column="1" Content="{Binding LookActionLabel}" Tag="{Binding Image}" Click="EditLookClick" Style="{StaticResource Ghost}" Foreground="{StaticResource Accent}" MinHeight="22" Padding="3,0" FontSize="10" ToolTip="给造型起名，编辑发型和衣着" AutomationProperties.Name="编辑参考图造型与名称"/>
+          </Grid>
          </Grid>
         </Border>
        </DataTemplate>
       </ItemsControl.ItemTemplate>
      </ItemsControl>
-    </ScrollViewer>
+     </ScrollViewer>
+    </StackPanel>
    </Expander>
    <Button x:Name="AddButton" Content="＋ 添加图片" Click="AddClick" Style="{StaticResource Ghost}" HorizontalAlignment="Right" VerticalAlignment="Top" MinHeight="28" Padding="6,3" FontSize="12" Foreground="{StaticResource Accent}" AutomationProperties.Name="添加参考图片"/>
   </Grid>

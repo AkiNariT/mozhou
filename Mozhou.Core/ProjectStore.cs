@@ -62,7 +62,7 @@ public sealed class ProjectStore : IDisposable
         if (!string.Equals(Path.GetExtension(target), ".mozhou", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("单文件小说副本须使用 .mozhou 扩展名。");
         if (File.Exists(target) || Directory.Exists(target)) throw new IOException("目标已存在，请选择新的小说文件名。");
         var copy = JsonSerializer.Deserialize<NovelProject>(JsonSerializer.SerializeToUtf8Bytes(current, JsonOptions), JsonOptions)!;
-        PrepareProject(copy); Images.ValidateReferences(copy);
+        Validate(copy, upgradeFormat: true); Images.ValidateReferences(copy);
         copy.UpdatedAt = DateTimeOffset.Now;
         var bytes = JsonSerializer.SerializeToUtf8Bytes(copy, JsonOptions);
         var pending = Images.PendingFiles();
@@ -155,7 +155,7 @@ public sealed class ProjectStore : IDisposable
 
     public void Save(NovelProject project)
     {
-        ThrowIfDisposed(); PrepareProject(project);
+        ThrowIfDisposed(); Validate(project, upgradeFormat: true);
         if (IsDocument) { SaveDocument(project); return; }
         Directory.CreateDirectory(Folder);
         using var gate = AcquireWriteLock();
@@ -205,14 +205,6 @@ public sealed class ProjectStore : IDisposable
             return restored;
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
-    }
-
-    private static void PrepareProject(NovelProject project)
-    {
-        ArgumentNullException.ThrowIfNull(project);
-        if (project.FormatVersion == 1 && project.Entries?.Any(entry => entry?.Images?.Count > 0) == true)
-            project.FormatVersion = 2;
-        Validate(project);
     }
 
     private void SaveDocument(NovelProject project)
@@ -429,22 +421,24 @@ public sealed class ProjectStore : IDisposable
         Validate(project); return project;
     }
 
-    private static void Validate(NovelProject project)
+    private static void Validate(NovelProject project, bool upgradeFormat = false)
     {
         ArgumentNullException.ThrowIfNull(project);
-        if (project.FormatVersion is not 1 and not 2) throw new InvalidDataException("此小说文件版本不受支持，请勿覆盖原文件。");
+        if (project.FormatVersion is < 1 or > 3) throw new InvalidDataException("此小说文件版本不受支持，请勿覆盖原文件。");
         if (string.IsNullOrWhiteSpace(project.Id) || project.Title == null || project.Description == null || project.Entries == null || project.Relations == null)
             throw new InvalidDataException("小说文件缺少必要字段。");
         var ids = new HashSet<string>(StringComparer.Ordinal);
         var imageIds = new HashSet<string>(StringComparer.Ordinal);
+        var requiredFormat = 1;
         foreach (var entry in project.Entries)
         {
             if (entry == null || string.IsNullOrWhiteSpace(entry.Id) || !ids.Add(entry.Id) || entry.Kind == null || entry.Title == null || entry.Group == null || entry.Summary == null || entry.Content == null || entry.Tags == null || entry.Color == null || entry.LinkedIds == null || entry.Images == null || !double.IsFinite(entry.X) || !double.IsFinite(entry.Y))
                 throw new InvalidDataException("小说条目缺少字段、编号重复或坐标无效。");
-            if (project.FormatVersion == 1 && entry.Images.Count > 0) throw new InvalidDataException("包含参考图片的小说必须使用版本 2，原文件未修改。");
             foreach (var image in entry.Images)
             {
                 ProjectImageStore.ValidateDescriptor(image);
+                var classified = image.Hairstyle.Length > 0 || image.Outfit.Length > 0 || image.LookName.Length > 0;
+                requiredFormat = Math.Max(requiredFormat, classified ? 3 : 2);
                 if (!imageIds.Add(image.Id)) throw new InvalidDataException("参考图片编号重复。");
             }
         }
@@ -452,6 +446,11 @@ public sealed class ProjectStore : IDisposable
         foreach (var edge in project.Relations)
             if (edge == null || string.IsNullOrWhiteSpace(edge.Id) || !relationIds.Add(edge.Id) || !ids.Contains(edge.FromId) || !ids.Contains(edge.ToId) || edge.Label == null || edge.Note == null || edge.Color == null)
                 throw new InvalidDataException("人物关系含无效条目或编号。");
+        if (project.FormatVersion < requiredFormat)
+        {
+            if (!upgradeFormat) throw new InvalidDataException($"此稿件的参考图片数据需要格式版本 {requiredFormat}，原文件未修改。");
+            project.FormatVersion = requiredFormat;
+        }
     }
 
     private static bool IsLink(string path) => (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;

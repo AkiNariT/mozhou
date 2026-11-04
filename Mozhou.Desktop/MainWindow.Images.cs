@@ -13,6 +13,7 @@ public partial class MainWindow
     {
         ReferenceImages.AddRequested += ChooseReferenceImages;
         ReferenceImages.PreviewRequested += PreviewReferenceImage;
+        ReferenceImages.EditLookRequested += EditImageLook;
         ReferenceImages.RemoveRequested += image =>
         {
             try { RemoveReferenceImage(image); }
@@ -20,7 +21,8 @@ public partial class MainWindow
         };
     }
 
-    private void RefreshReferenceImages() => ReferenceImages.SetImages(_store?.Images, _selected?.Images ?? []);
+    private void RefreshReferenceImages() =>
+        ReferenceImages.SetImages(_store?.Images, _selected?.Images ?? [], _selected?.Kind == "character");
 
     private void ClearReferenceImages()
     {
@@ -56,14 +58,44 @@ public partial class MainWindow
         foreach (var path in paths) LocalImageLoader.Validate(path);
         var storage = _store.Images;
         var imported = new List<EntryImage>();
+        var look = ReferenceImages.GetImportLook();
         foreach (var path in paths)
         {
             var image = storage.Import(path);
             // Validate the copied bytes too: the external source may have changed during import.
             LocalImageLoader.Validate(storage.ResolvePath(image));
+            if (_selected.Kind == "character")
+            {
+                image.LookName = look.LookName;
+                image.Hairstyle = look.Hairstyle;
+                image.Outfit = look.Outfit;
+            }
             imported.Add(image);
         }
         _selected.Images.AddRange(imported);
+        _selected.UpdatedAt = DateTimeOffset.Now;
+        MarkDirty();
+        RefreshReferenceImages();
+        return Flush();
+    }
+
+    private void EditImageLook(EntryImage image)
+    {
+        if (_selected?.Kind != "character" || !_selected.Images.Contains(image) || !Flush()) return;
+        var look = Dialogs.EditImageLook(this, _selected, image, _project.FormatVersion < 3);
+        if (look.HasValue) ApplyImageLook(image, look.Value.LookName, look.Value.Hairstyle, look.Value.Outfit);
+    }
+
+    private bool ApplyImageLook(EntryImage image, string lookName, string hairstyle, string outfit)
+    {
+        if (_store == null || _selected?.Kind != "character" || !_selected.Images.Contains(image)) return false;
+        lookName = lookName.Trim();
+        hairstyle = hairstyle.Trim();
+        outfit = outfit.Trim();
+        if (image.LookName == lookName && image.Hairstyle == hairstyle && image.Outfit == outfit) return Flush();
+        image.LookName = lookName;
+        image.Hairstyle = hairstyle;
+        image.Outfit = outfit;
         _selected.UpdatedAt = DateTimeOffset.Now;
         MarkDirty();
         RefreshReferenceImages();
