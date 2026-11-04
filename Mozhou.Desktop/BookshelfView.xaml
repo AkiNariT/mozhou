@@ -149,7 +149,7 @@
    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
    <Border Grid.ColumnSpan="2" Height="1" Background="{StaticResource Line}" VerticalAlignment="Top"/>
    <TextBlock Text="一本小说，一份 .mozhou 文档。保存在你选择的位置。" Foreground="{StaticResource Muted}" FontSize="11" VerticalAlignment="Center"/>
-   <TextBlock Grid.Column="1" Text="墨舟 · 创作手稿" FontFamily="{DynamicResource DisplayFont}" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+   <Button Grid.Column="1" Content="版本与更新" Click="MaintenanceClick" Style="{StaticResource Ghost}" Padding="10,4" FontSize="12" VerticalAlignment="Center"/>
   </Grid>
  </Grid>
 </UserControl>

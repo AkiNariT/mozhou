@@ -24,6 +24,7 @@
        <MenuItem Header="另存为墨舟文档…" Click="SaveCopyClick" ToolTip="包含全部未保存内容、设定、关系网与图片，原稿保留"/><Separator/>
        <MenuItem Header="导出正文 Markdown" Click="ExportMarkdownClick"/><MenuItem Header="导出正文 TXT" Click="ExportTextClick"/>
        <MenuItem Header="打包备份 ZIP" Click="BackupClick"/><MenuItem Header="恢复上一次保存" Click="RestoreClick"/>
+       <Separator/><MenuItem Header="版本与更新" Click="MaintenanceClick"/>
       </ContextMenu></Button.ContextMenu>
      </Button>
      <Border Width="1" Height="18" Background="{StaticResource Line}" Margin="12,0"/>

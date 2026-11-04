@@ -17,6 +17,7 @@ public partial class BookshelfView : UserControl
     public event Action<string>? LocateRequested;
     public event Action? NewRequested;
     public event Action? OpenExistingRequested;
+    public event Action? MaintenanceRequested;
 
     public BookshelfView()
     {
@@ -79,6 +80,7 @@ public partial class BookshelfView : UserControl
 
     private void NewClick(object sender, RoutedEventArgs e) => NewRequested?.Invoke();
     private void OpenExistingClick(object sender, RoutedEventArgs e) => OpenExistingRequested?.Invoke();
+    private void MaintenanceClick(object sender, RoutedEventArgs e) => MaintenanceRequested?.Invoke();
     private void OpenBookClick(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: BookCard book }) OpenRequested?.Invoke(book.Folder);

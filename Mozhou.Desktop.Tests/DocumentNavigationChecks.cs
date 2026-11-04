@@ -13,7 +13,7 @@ internal static class DocumentNavigationChecks
         var root = Path.Combine(AppContext.BaseDirectory, "fixtures", "documents-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var document = Path.Combine(root, "长夜行舟.mozhou");
-        var normalized = (string)typeof(MainWindow).GetMethod("ProjectFolder", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, [document])!;
+        var normalized = BookshelfStartup.ProjectFolder(document);
         check(normalized == document, "opening a novel document preserves the selected file instead of using its parent folder");
         var validate = typeof(MainWindow).GetMethod("ValidateNewDocumentPath", BindingFlags.Static | BindingFlags.NonPublic)!;
         foreach (var invalid in new[] { Path.Combine(root, "小说.txt"), Path.Combine(root, "无扩展名") })

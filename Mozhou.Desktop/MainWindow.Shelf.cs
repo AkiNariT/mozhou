@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using Microsoft.Win32;
 using Mozhou.Core;
+using static Mozhou.Desktop.BookshelfStartup;
 
 namespace Mozhou.Desktop;
 
@@ -18,6 +19,7 @@ public partial class MainWindow
         ShelfPane.OpenExistingRequested += () => OpenProjectClick(this, new RoutedEventArgs());
         ShelfPane.ForgetRequested += ForgetShelfBook;
         ShelfPane.LocateRequested += LocateShelfBook;
+        ShelfPane.MaintenanceRequested += ShowMaintenance;
     }
 
     private void InitializeBookshelf()
@@ -25,32 +27,10 @@ public partial class MainWindow
         try
         {
             if (!_bookshelf.Exists)
-            {
-                var candidates = new List<string>();
-                if (!string.IsNullOrWhiteSpace(_settings.LastProjectPath))
-                {
-                    try { candidates.Add(ProjectFolder(_settings.LastProjectPath)); }
-                    catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
-                    { _shelfNotice = "旧设置中的小说路径无效，已跳过。你可以通过“打开 / 导入小说”重新添加。"; }
-                }
-                var library = Path.Combine(SettingsStore.DataRoot, "Library");
-                if (Directory.Exists(library))
-                    candidates.AddRange(Directory.EnumerateDirectories(library)
-                        .Where(folder => (File.GetAttributes(folder) & FileAttributes.ReparsePoint) == 0
-                            && (File.Exists(Path.Combine(folder, "project.mozhou.json"))
-                                || File.Exists(Path.Combine(folder, "project.mozhou.json.bak")))));
-                _bookshelf.Seed(candidates);
-            }
+                _shelfNotice = BookshelfStartup.Seed(_bookshelf, SettingsStore.DataRoot, _settings.LastProjectPath);
         }
         catch (Exception ex) { _shelfNotice = "书架信息无法读取，原文件已保留。你仍可以打开 / 导入小说。\n" + ex.Message; }
         ShowBookshelf();
-    }
-
-    private static string ProjectFolder(string path)
-    {
-        var folder = !Directory.Exists(path) && string.Equals(Path.GetFileName(path), "project.mozhou.json", StringComparison.OrdinalIgnoreCase)
-            ? Path.GetDirectoryName(Path.GetFullPath(path))! : Path.GetFullPath(path);
-        return Path.TrimEndingDirectorySeparator(folder);
     }
 
     private bool CanSwitchProjects()

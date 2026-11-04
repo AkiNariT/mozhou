@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using static Mozhou.Desktop.BookshelfStartup;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -155,9 +156,11 @@ public partial class MainWindow
 
         6. 项目菜单可导出正文 Markdown/TXT、创建完整 ZIP 备份、恢复上一次保存。文档内保留最近 30 个保存历史；重要阶段建议另存独立副本。保存冲突时，用「另存为墨舟文档…」保留全部未保存内容。ZIP 解压后可打开其中的 project.mozhou.json。
 
-        7. 移动或分享前，等待“已保存到本地”并关闭小说，再复制 .mozhou 文件即可。保存过程中可能暂时出现事务文件，请勿在此时移动。通过应用打开文档；如需双击打开，可在 Windows「打开方式」中选择墨舟。本版本不自动修改系统文件关联。
+        7. 移动或分享前，等待“已保存到本地”并关闭小说，再复制 .mozhou 文件即可。保存过程中可能暂时出现事务文件，请勿在此时移动。安装版可双击 .mozhou 打开。若 Windows 询问打开方式，请选择墨舟。
 
         8. 右侧可连接本机官方 Codex，使用 ChatGPT 登录。发送前可查看上下文，当前条目和勾选的设定会发往云端；默认不附带其他章节全文。回答可复制、追加到发起请求时的条目，或保存为灵感。路径检测失败时可点齿轮选择 codex.exe。
+
+        9. 书架底部或编辑器的「项目 → 版本与更新」可以检查新版。运行新版安装包即可原位升级。在这个窗口也可进入 Windows 已安装的应用，选择墨舟卸载。小说、书架与设置会保留。
 
         正文使用纯文本编辑，可直接输入 Markdown。默认启动进入书架；“移出书架”只移除入口，不删除文档。字数按中文字符和英文单词估算。
         """);

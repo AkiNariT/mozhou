@@ -1,4 +1,4 @@
-墨舟 0.7.0 · 本地小说工作台
+墨舟 0.8.0 · 本地小说工作台
 
 Windows 原生桌面软件：正文、人设、大纲、世界观、灵感、可拖动的人物关系网，以及嵌入式 Codex 写作搭档。
 新建小说保存在一个本地 .mozhou 文档中；旧版小说文件夹仍可继续使用。Codex 使用本机官方客户端已有的 ChatGPT 登录；只接受 ChatGPT 认证，不接入 API Key。
@@ -11,8 +11,8 @@ Windows 原生桌面软件：正文、人设、大纲、世界观、灵感、可
 首次运行可导入旧设置中的小说和程序目录 Library 下的小说。命令行传入 .mozhou、旧项目目录或 project.mozhou.json 可直接打开。
 
 开始使用
-运行需要 Windows 和 .NET 8 Desktop Runtime。Windows ZIP 请完整解压后启动 Mozhou.exe，不要只复制 EXE。
-0.7.0 下载 https://github.com/AkiNariT/mozhou/releases/tag/v0.7.0
+Windows x64 安装版已含运行环境。双击安装包后，从桌面或开始菜单启动墨舟。
+下载安装包 https://github.com/AkiNariT/mozhou/releases/download/v0.8.0/Mozhou-Setup-0.8.0-x64.exe
 
 0.7.0 人设图造型
 打开角色，在参考图卡片下点“造型起名”。可以只取组名，如“入学第一天”，也可以填写发型和衣着。同名图归为一组；三项均可组合筛选。在选中的组里添加图片，新图沿用同组共同特征。首次保存分类后，请用0.7.0或更新版本编辑这本小说。
@@ -23,10 +23,10 @@ Windows 原生桌面软件：正文、人设、大纲、世界观、灵感、可
 移动或复制前，请等待保存完成并退出墨舟，再移动这个文档。写入期间旁边可能短暂出现 -journal 文件，正常提交后移除；图片预览临时缓存可再生，不需要一同移动。
 旧版文件夹继续支持。打开旧稿后，在项目菜单选择“另存为墨舟文档…”，选定新文件；保存成功后切换到新文档，原文件夹保留。
 继续使用旧格式时，须整体保留 project.mozhou.json、assistant-chat.json、assets/images、.bak 和 backups 等原目录内容。
-不自动注册 .mozhou 文件关联。可从应用打开，或在 Windows“打开方式”中选择 Mozhou.exe。
+安装版支持双击打开 .mozhou。Windows 询问打开方式时选择墨舟。
 0.5.0 不能打开新 .mozhou 容器；新文档需要0.6.0或更新的兼容版本。
 ZIP完整备份仍导出为旧版逻辑目录。解压后选择 project.mozhou.json 打开，不要把ZIP直接改名为 .mozhou。
-书架索引 bookshelf.json 与本机设置 mozhou-settings.json 位于程序目录，升级时可保留；文档移动后请从新位置打开或重新定位。
+安装版的书架和设置保存在 %LOCALAPPDATA%\Mozhou\UserData。初次从便携版转入时，可选旧程序目录沿用书架。旧手稿从原位置继续打开。书架或项目菜单的“版本与更新”可检查新版并进入 Windows 应用列表卸载。运行新版安装包即可升级，升级和卸载均保留作品、书架与设置。
 详细使用说明见 docs/single-document-0.6.0.txt。
 
 开发与运行
@@ -48,7 +48,7 @@ ZIP完整备份仍导出为旧版逻辑目录。解压后选择 project.mozhou.j
 
 发行
   dotnet publish Mozhou.Desktop/Mozhou.Desktop.csproj -c Release --no-restore -m:1 -o publish
-这是依赖 .NET 8 Desktop Runtime 的便携目录；请整体复制，不要只复制 EXE。
+以上命令构建开发用便携目录。GitHub 的 Windows 安装包通过 packaging/Publish-Payload.ps1 和 packaging/Build-Installer.ps1 构建，自带运行环境。完整构建步骤见 README.md。
 
 代码结构
 Mozhou.Core：项目模型、文件保存与冲突检测、备份、导出、写作上下文。

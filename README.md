@@ -4,7 +4,9 @@
 
 一个安静、温润的 Windows 本地小说写作工具。以暖白纸色、宋体、留白和书刊装帧为设计基础，把正文、人物和故事世界放在同一个工作台里。
 
-本文对应版本：**0.7.0**。使用 C#、.NET 8 和 WPF 开发，无第三方 NuGet 依赖。
+**[下载墨舟 0.8.0 Windows x64 安装版](https://github.com/AkiNariT/mozhou/releases/download/v0.8.0/Mozhou-Setup-0.8.0-x64.exe)**
+
+双击安装包，完成后从桌面打开墨舟。安装包自带 .NET 桌面运行环境。
 
 ## 能做什么
 
@@ -27,17 +29,19 @@
 
 ## 开始使用
 
-从 [0.7.0 Release](https://github.com/AkiNariT/mozhou/releases/tag/v0.7.0) 下载 Windows ZIP，完整解压后运行 `Mozhou.exe`。不要只复制 EXE；同目录的 DLL 和运行配置必须保留。
+运行下载好的 `Mozhou-Setup-0.8.0-x64.exe`。安装器为当前用户创建桌面和开始菜单快捷方式。书架中的“新建小说”会让你选择书名和作品的保存位置。
 
-运行环境：Windows 和 **.NET 8 Desktop Runtime**。书架中的“新建小说”会让你选择书名与 `.mozhou` 文件的保存位置。“打开/导入”可选择 `.mozhou` 文档或旧版 `project.mozhou.json`。
+第一次从便携版转入时，安装器会尝试找到旧程序目录。若出现“沿用便携版书架”，选择含旧 `Mozhou.exe` 的文件夹即可。已有小说仍从原位置打开，包括旧便携目录中的 `Library` 作品。
+
+在书架底部或编辑器的“项目”菜单打开“版本与更新”。发现新版后，下载并运行新版安装包即可升级。这里也能进入 Windows 的应用列表，选择“墨舟”卸载。卸载保留作品、书架和设置，重新安装后可以继续使用。
 
 新建小说采用一个 `.mozhou` 文件保存整本作品。自动保存成功后，最新内容已经写入该文件；参考图、AI 对话和最近 30 次保存历史也包含在文档内。请等待保存完成并退出墨舟，再复制或移动这个文件。保存期间旁边可能短暂出现 `-journal` 文件；正常提交后会移除。图片预览缓存可以重新生成，不需要随小说搬运。
 
 旧版小说文件夹仍可继续编辑。要转换，打开旧稿后在项目菜单选择“另存为墨舟文档…”，选择新 `.mozhou` 文件；保存成功后切换到新文档，原文件夹保留。继续使用旧格式时，仍须保留整个文件夹，包括 `project.mozhou.json`、`assistant-chat.json`、`assets/images/`、`.bak` 和 `backups/`。
 
-墨舟不会自动注册 `.mozhou` 的系统文件关联。可从应用内打开文档，也可在 Windows“打开方式”中选择 `Mozhou.exe`。**0.5.0 不能打开新的 `.mozhou` 容器**；新文档需要 0.6.0 或更新的兼容版本。
+安装后双击 `.mozhou` 即可打开。如果 Windows 询问打开方式，或此前已选过其他程序，请在“打开方式”中选“墨舟”。
 
-书架索引 `bookshelf.json` 和本机设置 `mozhou-settings.json` 位于程序目录；升级时保留这两个文件可沿用书架和设置。小说文件不会因升级自动搬移。文档移动后，可从新位置重新打开或在书架重新定位。
+安装版将书架和设置存放在 `%LOCALAPPDATA%\Mozhou\UserData`。文档移动后，可从新位置重新打开或在书架重新定位。
 
 完整 ZIP 备份仍导出为旧版逻辑目录结构。解压后选择其中的 `project.mozhou.json` 即可打开；ZIP 不是 `.mozhou` 文件，不能通过改扩展名转换。具体操作见 [单文档使用说明](docs/single-document-0.6.0.txt)。
 
@@ -54,11 +58,17 @@ dotnet build Mozhou.Desktop/Mozhou.Desktop.csproj -c Release --no-restore -m:1
 dotnet run --project Mozhou.Desktop/Mozhou.Desktop.csproj -c Release --no-build
 ```
 
-发布为便携目录：
+构建 Windows 安装包需要 Inno Setup 6 和 .NET 8 SDK。以下命令在工作目录里准备 x64 运行环境并生成 EXE。将 `$compiler` 设为本机 ISCC.exe 的路径。
 
 ```powershell
-dotnet publish Mozhou.Desktop/Mozhou.Desktop.csproj -c Release --no-restore -m:1 -o publish
+$work = Join-Path $env:TEMP ('MozhouBuild-' + [guid]::NewGuid().ToString('N'))
+$payload = Join-Path $work 'payload'
+$compiler = Read-Host 'Inno Setup ISCC.exe 的完整路径'
+.\packaging\Publish-Payload.ps1 -WorkDir $work -PayloadDir $payload
+.\packaging\Build-Installer.ps1 -PayloadDir $payload -OutputDir (Join-Path $work 'setup') -IsccPath $compiler
 ```
+
+0.8.0 的安装包使用 Inno Setup 6.7.4 和微软 .NET 8.0.33 Windows Desktop 运行时。[Inno Setup](https://jrsoftware.org/isdl.php) · [微软自包含部署说明](https://learn.microsoft.com/en-us/dotnet/core/deploying/)
 
 重新构建同一路径的 EXE 前，请正常关闭正在运行的程序。
 
@@ -125,4 +135,4 @@ dotnet run --project Mozhou.Benchmarks -c Release -p:BuildInParallel=false
 | `Mozhou.Benchmarks` | 统计性能微基准 |
 | `docs` | 设计、历史审查和验证记录 |
 
-当前是纯文本编辑器，尚未实现富文本、云同步、多人协作、安装器、代码签名或自动更新。Codex 适配依赖官方协议；开发时验证的客户端版本为 `0.164.0-alpha.11.1`，未来版本可能需要调整。
+当前是纯文本编辑器，尚未实现富文本、云同步、多人协作、代码签名或后台自动更新。Codex 适配依赖官方协议；开发时验证的客户端版本为 `0.164.0-alpha.11.1`，未来版本可能需要调整。

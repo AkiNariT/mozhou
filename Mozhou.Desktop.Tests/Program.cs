@@ -11,6 +11,7 @@ internal static class Program
 
     [STAThread] private static void Main()
     {
+        ProfileMigrationChecks.Run(Check);
         var app = new App(); app.InitializeComponent();
         var dir = Path.Combine(AppContext.BaseDirectory, "fixtures", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
@@ -52,6 +53,8 @@ internal static class Program
         CharacterLookChecks.Run(Check);
         ImageDecodingChecks.Run(Check);
         BookshelfNavigationChecks.Run(Check);
+        ReleaseUpdateChecks.Run(Check);
+        MaintenanceWindowChecks.Run(Check);
         StatisticsIntegrationChecks.Run(Check);
         StreamingChecks.Run(Check);
         app.Shutdown();
